@@ -10,6 +10,7 @@ import os
 import re
 import json
 import zipfile
+import pandas as pd 
 
 from process_utils import read_text_from_txt, read_text_from_xml, preprocess_news
 
@@ -200,6 +201,12 @@ class PaperSumary(Preprocess):
                 continue
 
             self.write(text)
+
+###### Namu Dump Data #######
+def process_namu():
+    df = pd.read_parquet('../../dataset/namuwiki_20210301_v3.parquet', engine='pyarrow') 
+    print(df.head(10))
+    print(df.describe())
     
 if __name__ == "__main__":
     # process1 = Malmunchi_book()
@@ -211,5 +218,6 @@ if __name__ == "__main__":
     # process4 = Expertise()
     # print(process4)
     # process4.multiprocessing()
-    process5 = PaperSumary()
-    process5.multiprocessing()
+    # process5 = PaperSumary()
+    # process5.multiprocessing()
+    process_namu()
