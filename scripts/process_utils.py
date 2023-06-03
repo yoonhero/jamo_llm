@@ -39,3 +39,12 @@ def read_text_from_txt(txt_dir: str, encoding):
     with open(txt_dir, "r", encoding=encoding) as f:
         texts = f.read()
     return texts
+
+
+def process_c4(text):
+    splitted_text = text.split("\n")
+    
+    copyright_marks = ["Copyright", "©"]
+    not_essential = ["개인정보보호정책", "개인 정보 보호 정책"]
+    for i, t in enumerate(splitted_text):
+        if len(t) < 10: break 

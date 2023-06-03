@@ -202,12 +202,49 @@ class PaperSumary(Preprocess):
 
             self.write(text)
 
-###### Namu Dump Data #######
-def process_namu():
-    df = pd.read_parquet('../../dataset/namuwiki_20210301_v3.parquet', engine='pyarrow') 
-    print(df.head(10))
-    print(df.describe())
-    
+
+##### NAMUU ######
+##### 565293 rows ######
+class NAMU(Preprocess):
+    def __init__(self):
+        self.result_dir = Path("../../dataset/processed/namu_corpus.txt")
+        self.result_dir.parent.mkdir(exist_ok=True)
+        from datasets import load_dataset
+        self.dataset = load_dataset("heegyu/namuwiki-extracted")["train"]
+        self.total_files = len(self.dataset)
+
+    def process_namu(self, data):
+        text = data["text"]
+        title = data["title"]
+
+        text = clean_text(text)
+
+        to_delete_prefix = ["width", "heigh"]
+
+        splitted_text = text.split("\n")
+        def isitin(t): 
+            for prefix in to_delete_prefix:
+                if prefix in t:
+                    return False
+            return True
+
+        result = " ".join(filter(isitin, splitted_text))
+        self.write(f"<s> {title}은 {result} </s>")
+
+    def multiprocessing(self):
+        pool = Pool(cpu_cores-1)
+
+        with tqdm.tqdm(total=self.total_files) as pbar:
+            for _ in tqdm.tqdm(pool.imap_unordered(self.process_namu, self.dataset)):
+                pbar.update()
+
+        pool.close()
+        pool.join()
+
+    def normal(self):
+        for data in self.dataset:
+            self.process_namu(data)
+
 if __name__ == "__main__":
     # process1 = Malmunchi_book()
     # process1.multiprocessing()
@@ -220,4 +257,5 @@ if __name__ == "__main__":
     # process4.multiprocessing()
     # process5 = PaperSumary()
     # process5.multiprocessing()
-    process_namu()
+    process6 = NAMU()
+    process6.multiprocessing()
