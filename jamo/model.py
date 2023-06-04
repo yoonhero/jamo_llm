@@ -11,7 +11,7 @@ class JamoConfig:
     n_heads: int
     n_layer: int
     vocab_size: int=10000
-    block_size:int=512
+    block_size:int=256
     dropout: int = 0.2
 
     @classmethod

@@ -65,7 +65,7 @@ class IterablDataset(Dataset):
         return x, y
 
     def __len__(self):
-        return self.num_subsets 
+        return self.num_subsets
     
     def __repr__(self) -> str:
         return f"Total {self.num_subsets} subsets."

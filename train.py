@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import argparse
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
 import tqdm
 import random
 import numpy as np
