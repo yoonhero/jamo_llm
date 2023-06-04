@@ -1,1 +1,1 @@
-torchrun train.py --batch_size=64 --with_lr_scheduler --wandb
+torchrun train.py --batch_size=64 --with_lr_scheduler 

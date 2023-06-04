@@ -59,8 +59,8 @@ class IterablDataset(Dataset):
         else:
             token = self.tokens[idx]
         
-        x = torch.tensor(token[:-1], dtype=torch.long)
-        y = torch.tensor(token[1:], dtype=torch.long)
+        x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
+        y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
 
         return x, y
 

@@ -83,7 +83,7 @@ class Trainer():
             model, optimizer, _ = utils.load_model(self.checkpoint_dir, self.learning_rate, best=True)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
-            model = JAMO.from_name("small")
+            model = JAMO.from_name("small").to(device="cuda")
             model = torch.compile(model)
             optimizer = optim.AdamW(get_grouped_params(model), betas=(0.9, 0.95))
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
@@ -174,7 +174,7 @@ class Trainer():
 
     def sampling(self, model: JAMO):
         token = self.tokenizer.encode("", bos=True)
-        token = torch.tensor([token], dtype=torch.long)
+        token = torch.tensor([token], dtype=torch.long, device="cuda")
         output = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=8, eos_id=self.tokenizer.encode("</s>")[0])
         result = self.tokenizer.decode(output[0])
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     set_seed()
     torch.multiprocessing.set_start_method("spawn")
-    torch.set_default_device('cuda')
+    # torch.set_default_device('cuda')
 
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
 
