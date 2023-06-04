@@ -61,7 +61,7 @@ class Preprocess():
     def write(self, text):
         mode = "a" if self.result_dir.exists() else "w"
         with open(str(self.result_dir), mode, encoding="utf-8") as f:
-            f.write(text+"\n")
+            f.write(f"<s> {text} </s>\n")
 
     def multiprocessing(self):
         pool = Pool(cpu_cores-1)
@@ -87,8 +87,11 @@ class Preprocess():
 ## 10754 files in 18s
 class Malmunchi_book(Preprocess):
     def __init__(self):
-        dataset_dir = Path("../../dataset/비출판물/malmungchi/")
-        super().__init__(dataset_dir)
+        self.result_dir = Path("../../dataset/processed/modu_bee_corpus.txt")
+        self.result_dir.parent.mkdir(exist_ok=True)
+
+        self.target_files = glob.glob("../../dataset/NIKL_NP_v1.2_비출판물/국립국어원 비출판물 말뭉치(버전 1.2)/*.sjml")
+        self.total_files = len(self.target_files)
 
     def read(self, file_dir):
         text = read_text_from_xml(file_dir)
@@ -103,7 +106,7 @@ class Malmunchi_book(Preprocess):
 #### 10045 Files in 36s
 class Munu(Preprocess):
     def __init__(self):
-        dataset_dir = Path("../../dataset/문어 말뭉치/문어")
+        dataset_dir = Path("../../dataset/NIKL_WRITTEN(v1.2)")
         super().__init__(dataset_dir)
 
     def read(self, file_dir):
@@ -245,11 +248,12 @@ class NAMU(Preprocess):
         for data in self.dataset:
             self.process_namu(data)
 
+
 if __name__ == "__main__":
-    # process1 = Malmunchi_book()
-    # process1.multiprocessing()
-    # process2 = Munu()
-    # process2.multiprocessing()
+    process1 = Malmunchi_book()
+    process1.multiprocessing()
+    process2 = Munu()
+    process2.multiprocessing()
     # process3 = EnormousBookCorpus()
     # process3.multiprocessing()
     # process4 = Expertise()
@@ -257,5 +261,5 @@ if __name__ == "__main__":
     # process4.multiprocessing()
     # process5 = PaperSumary()
     # process5.multiprocessing()
-    process6 = NAMU()
-    process6.multiprocessing()
+    # process6 = NAMU()
+    # process6.multiprocessing()

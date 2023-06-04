@@ -1,0 +1,7 @@
+python-dotenv
+wandb
+torchmetrics
+sentencepiece~=0.1.99
+tqdm~=4.65.0
+torch~=2.0.1
+numpy~=1.24.3
