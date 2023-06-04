@@ -103,7 +103,7 @@ class Trainer():
         )
 
     def create_dataloader(self, tokenizer, block_size):
-        g = torch.Generator()
+        g = torch.Generator(device="cuda")
         g.manual_seed(1231928)
 
         dataset = IterablDataset(str(self.corpus_path), tokenizer, block_size)
