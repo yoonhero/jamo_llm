@@ -132,9 +132,9 @@ class JAMO(nn.Module):
 class Block(nn.Module):
     def __init__(self, config: JamoConfig):
         super().__init__()
-        self.rms_1 = RMSNorm(self.n_embd)
+        self.rms_1 = RMSNorm(config.n_embd)
         self.sa = CasualAttention(config)
-        self.rms_2 = RMSNorm(self.n_embd)
+        self.rms_2 = RMSNorm(config.n_embd)
         self.ffwd = FeedForward(config)
     
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
@@ -149,10 +149,10 @@ class CasualAttention(nn.Module):
     def __init__(self, config: JamoConfig) -> None:
         super().__init__()
         assert config.n_embd % config.n_heads == 0, "Please Check Embedding and Heads Number Config."
-        self.head_size = self.n_embd//self.n_heads
+        self.head_size = config.n_embd//config.n_heads
 
         self.c_attn = nn.Linear(config.n_embd, config.n_embd*3, bias=False)
-        self.c_proj = nn.Linear(self.n_embd, self.n_embd, bias=False)
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
     
         self.n_head = config.n_heads
         self.n_embd = config.n_embd
