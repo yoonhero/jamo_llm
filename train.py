@@ -187,7 +187,7 @@ class Trainer():
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-    utils.set_seed()
+    set_seed()
     torch.multiprocessing.set_start_method("spawn")
     torch.set_default_device('cuda')
 
