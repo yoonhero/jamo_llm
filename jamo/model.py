@@ -109,7 +109,7 @@ class JAMO(nn.Module):
     def build_rope_cache(self, idx: torch.Tensor) -> torch.Tensor:
         return build_rope_cache(
             seq_len=self.config.block_size,
-            n_elem=self.config.n_embd // self.config.n_head,
+            n_elem=self.config.n_embd // self.config.n_heads,
             dtype=idx.dtype,
             device=idx.device,
         )
