@@ -22,7 +22,7 @@ from dataset import IterablDataset
 load_dotenv()
 
 os.environ["WANDB_API_KEY"] = os.environ.get('wandb')
-os.environ["WANDB_MODE"] = "dryrun"
+os.environ["WANDB_MODE"] = "offline"
 
 logger = logging.getLogger(__name__)
 formatter = logging.Formatter('[%(asctime)s] [%(levelname)s | %(filename)s : %(lineno)s] >> %(message)s')
