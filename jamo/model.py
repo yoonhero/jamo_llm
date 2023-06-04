@@ -139,7 +139,7 @@ class Block(nn.Module):
     
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
         B, T, C = x.shape
-        h, new_kv_cache = self.attn(self.rms_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
+        h, new_kv_cache = self.sa(self.rms_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
         x = x + h
         x = x + self.ffwd(self.rms_2(x))
         return x, new_kv_cache
