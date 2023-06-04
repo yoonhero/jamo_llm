@@ -1,5 +1,3 @@
-torch.set_default_device('cuda')
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
