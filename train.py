@@ -83,7 +83,7 @@ class Trainer():
             model, optimizer, _ = utils.load_model(self.checkpoint_dir, self.learning_rate, best=True)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
-            model = JAMO.from_name("small").to(device="cuda")
+            model = JAMO.from_name("small").to(torch.device("cuda"))
             model = torch.compile(model)
             optimizer = optim.AdamW(get_grouped_params(model), betas=(0.9, 0.95))
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
@@ -103,7 +103,7 @@ class Trainer():
         )
 
     def create_dataloader(self, tokenizer, block_size):
-        g = torch.Generator(device="cuda")
+        g = torch.Generator()
         g.manual_seed(1231928)
 
         dataset = IterablDataset(str(self.corpus_path), tokenizer, block_size)
