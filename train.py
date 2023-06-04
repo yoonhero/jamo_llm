@@ -136,7 +136,7 @@ class Trainer():
                 iter += 1
 
                 if self.with_lr_scheduler:
-                    lr = self.get_lr(iter) if self.decay_lr else self.learning_rate
+                    lr = self.get_lr(iter)
                     for param_group in optimizer.param_groups:
                         param_group["lr"] = lr
 
@@ -151,7 +151,6 @@ class Trainer():
 
                 if iter % self.gradient_accumulate == 0:
                     # torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad(set_to_none=True)
