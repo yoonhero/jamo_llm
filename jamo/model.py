@@ -158,6 +158,7 @@ class CasualAttention(nn.Module):
         self.n_embd = config.n_embd
         self.block_size = config.block_size
 
+        self.dropout = config.dropout
         if config.dropout:
             self.attn_dropout = nn.Dropout(self.dropout)
             self.resid_drop = nn.Dropout(self.dropout)
