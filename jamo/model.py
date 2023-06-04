@@ -7,11 +7,11 @@ from typing_extensions import Self
 
 @dataclass 
 class JamoConfig: 
-    block_size:int=512
-    vocab_size: int=10000
     n_embd: int
     n_heads: int
     n_layer: int
+    vocab_size: int=10000
+    block_size:int=512
     dropout: int = 0.2
 
     @classmethod
