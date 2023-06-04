@@ -21,9 +21,9 @@ class JamoConfig:
 
 jamo_configs = {
     "small": dict(n_layer=24, n_heads=16, n_embd=1024),
-    "medium": dict(n_layer=30, n_head=16, n_embd=2048),
-    "large": dict(n_layer=40, n_head=26, n_embd=6656),
-    "enormous": dict(n_layer=50, n_head=64, n_embd=8192),
+    "medium": dict(n_layer=30, n_heads=16, n_embd=2048),
+    "large": dict(n_layer=40, n_heads=26, n_embd=6656),
+    "enormous": dict(n_layer=50, n_heads=64, n_embd=8192),
 }
 
 class JAMO(nn.Module):
@@ -87,8 +87,8 @@ class JAMO(nn.Module):
                 x, _ = block(x, rope, mask, max_seq_length)
         else:
             if not self.kv_caches:
-                head_size = self.config.n_embd // self.config.n_head
-                cache_shape = (B, self.config.n_head, max_seq_length, head_size)
+                head_size = self.config.n_embd // self.config.n_heads
+                cache_shape = (B, self.config.n_heads, max_seq_length, head_size)
                 self.kv_caches = [
                     (torch.zeros(cache_shape, device=x.device, dtype=x.dtype), torch.zeros(cache_shape, device=x.device, dtype=x.dtype))
                     for _ in range(self.config.n_layer)
