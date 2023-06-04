@@ -16,7 +16,7 @@ class IterablDataset(Dataset):
         self.tokenizer = tokenizer
 
         self.pool_size = 4
-        self.from_cache = cache_dir == ""
+        self.from_cache = cache_dir != ""
         
         self.texts = []
         if not self.from_cache:
