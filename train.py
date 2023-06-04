@@ -40,7 +40,7 @@ def set_seed(seed=12499489):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-def get_grouped_params(model, weight_decay, no_decay=["bias", "LayerNorm.weight"]):
+def get_grouped_params(model, no_decay=["bias", "LayerNorm.weight"]):
     params_with_wd, params_without_wd = [], []
     for n, p in model.named_parameters():
         if any(nd in n for nd in no_decay):
