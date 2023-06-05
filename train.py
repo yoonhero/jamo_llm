@@ -53,7 +53,7 @@ class Trainer():
     def __init__(self, batch_size:int, corpus_path: str, checkpoint_dir:str, tokenizer_path:str, save_interval:int, gradient_accumulate:int, is_wandb:bool=False, with_lr_scheduler:bool=True, load:bool=False):
         self.learning_rate = 6e-4
         self.batch_size = batch_size
-        self.max_iters = 100000000
+        self.max_iters = 1000000
         self.grad_clip = 1.0
         self.warmup_iters = 2000
         self.lr_decay_iters = self.max_iters
@@ -85,7 +85,7 @@ class Trainer():
             self.checkpoint_dir.mkdir(exist_ok=True)
             model = JAMO.from_name("small").to(torch.device("cuda"))
             model = torch.compile(model)
-            optimizer = optim.AdamW(get_grouped_params(model), betas=(0.9, 0.95))
+            optimizer = optim.AdamW(model, weight_decay=1e-1, betas=(0.9, 0.95))
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
         #               model_parameters=params)    
@@ -108,7 +108,7 @@ class Trainer():
 
         dataset = IterablDataset(str(self.corpus_path), tokenizer, block_size)
 
-        train_loader = DataLoader(dataset, batch_size=self.batch_size, drop_last=True, shuffle=True, num_workers=4, generator=g)
+        train_loader = DataLoader(dataset, batch_size=self.batch_size, drop_last=True, generator=g)
         logger.info("Finishing Loading the DataLoader")
 
         return train_loader
@@ -147,7 +147,7 @@ class Trainer():
 
                     logger.info(f"Iter {iter}: Train Loss = {loss.item():.4f}")
 
-                scaler.scale(loss).backward()
+                scaler.scale(loss / self.gradient_accumulate).backward()
 
                 if iter % self.gradient_accumulate == 0:
                     # torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -165,8 +165,9 @@ class Trainer():
                         "train/loss": f"{loss.item():.6f}",
                         "lr": lr
                     })
-            
-            self.sampling(model)
+                
+                if iter % 1000 == 0:
+                    self.sampling(model)
 
             if self.is_wandb: 
                 import wandb
@@ -176,7 +177,7 @@ class Trainer():
         token = self.tokenizer.encode("", bos=True)
         token = torch.tensor([token], dtype=torch.long, device="cuda")
         output = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=8, eos_id=self.tokenizer.encode("</s>")[0])
-        result = self.tokenizer.decode(output[0])
+        result = self.tokenizer.decode(output)
 
         with open("result.txt", "a") as f:
             logger.info(result)
@@ -187,7 +188,7 @@ class Trainer():
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     set_seed()
-    torch.multiprocessing.set_start_method("spawn")
+    # torch.multiprocessing.set_start_method("spawn")
     # torch.set_default_device('cuda')
 
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')

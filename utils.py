@@ -35,7 +35,7 @@ def load_model(path: Path, learning_rate:float, best=True):
 
     if best:
         last_epoch = get_last_epoch(str(path))
-        path = path / f"epoch-{last_epoch}.tar"
+        path = path / f"iter-{last_epoch}.tar"
         model_state_dict = torch.load(str(path))
     else:
         assert path.exists(), "Please Check the model is existed."

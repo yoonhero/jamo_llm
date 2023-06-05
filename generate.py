@@ -1,7 +1,8 @@
 import torch
+from pathlib import Path
 
-from jamo import JAMO
-
+from jamo import JAMO, Tokenizer
+import utils
 
 @torch.no_grad()
 def generate(
@@ -55,3 +56,14 @@ def generate(
 
     return idx
 
+if __name__ == "__main__":
+    model, _, _ = utils.load_model(Path("./tmp/checkpoint"), 0.0)
+    tokenizer = Tokenizer("./tokenizer/corpus.model")
+
+    token = tokenizer.encode("", bos=True)
+    token = torch.tensor([token], dtype=torch.long, device="cuda")
+    output = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=4, eos_id=tokenizer.encode("</s>")[0])
+    print(output)
+    result = tokenizer.decode(output)
+
+    print(result)
