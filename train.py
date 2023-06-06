@@ -51,7 +51,7 @@ def get_grouped_params(model, no_decay=["bias", "LayerNorm.weight"]):
 
 class Trainer():
     def __init__(self, batch_size:int, corpus_path: str, checkpoint_dir:str, tokenizer_path:str, save_interval:int, gradient_accumulate:int, is_wandb:bool=False, with_lr_scheduler:bool=True, load:bool=False):
-        self.learning_rate = 6e-4
+        self.learning_rate = 1e-4
         self.batch_size = batch_size
         self.max_iters = 1000000
         self.grad_clip = 1.0
@@ -141,13 +141,14 @@ class Trainer():
                         param_group["lr"] = lr
 
                 with torch.cuda.amp.autocast():
-                    logits = model(x)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
 
+                    logits = model(x)
                     loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
 
                     logger.info(f"Iter {iter}: Train Loss = {loss.item():.4f}")
 
-                scaler.scale(loss / self.gradient_accumulate).backward()
+                scaler.scale(loss).backward()
 
                 if iter % self.gradient_accumulate == 0:
                     # torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -174,15 +175,15 @@ class Trainer():
                 wandb.finish()
 
     def sampling(self, model: JAMO):
-        token = self.tokenizer.encode("", bos=True)
+        token = self.tokenizer.encode("<s>", bos=True)
         token = torch.tensor([token], dtype=torch.long, device="cuda")
         output = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=8, eos_id=self.tokenizer.encode("</s>")[0])
         result = self.tokenizer.decode(output)
 
         with open("result.txt", "a") as f:
             logger.info(result)
-            f.writelines(result)
-    
+            f.write(result+"\n")
+
 
 
 if __name__ == "__main__":
@@ -195,9 +196,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument("--save_interval", type=int, default=100000)
-    parser.add_argument("--gradient_accumulate", type=int, default=8)
+    parser.add_argument("--gradient_accumulate", type=int, default=6)
     parser.add_argument("--output_dir", type=str, default="./tmp/checkpoint")
-    parser.add_argument("--corpus_path", type=str, default="./tmp/1024_chunk.txt")
+    parser.add_argument("--corpus_path", type=str, default="./tmp/512_chunk.txt")
     parser.add_argument("--tokenizer_path", type=str, default="./tokenizer/corpus.model")
     parser.add_argument('--load_model', action='store_true')
     parser.add_argument("--wandb", action="store_true")
