@@ -10,7 +10,7 @@ class JamoConfig:
     n_embd: int
     n_heads: int
     n_layer: int
-    vocab_size: int=10000
+    vocab_size: int=20000
     block_size:int=256
     dropout: int = 0.2
 

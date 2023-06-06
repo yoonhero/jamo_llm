@@ -85,7 +85,7 @@ class Trainer():
             self.checkpoint_dir.mkdir(exist_ok=True)
             model = JAMO.from_name("small").to(torch.device("cuda"))
             model = torch.compile(model)
-            optimizer = optim.AdamW(model, weight_decay=1e-1, betas=(0.9, 0.95))
+            optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
         #               model_parameters=params)    
