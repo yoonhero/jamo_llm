@@ -12,7 +12,7 @@ class JamoConfig:
     n_layer: int
     vocab_size: int=20000
     block_size:int=256
-    dropout: int = 0.2
+    dropout: int = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 
     @classmethod
     def from_name(cls, name: str) -> Self:

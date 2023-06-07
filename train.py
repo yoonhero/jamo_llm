@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sophia import SophiaG
 import argparse
 from torch.utils.data import DataLoader
 import tqdm
@@ -13,6 +14,8 @@ from pathlib import Path
 # import deepspeed
 import os
 from dotenv import load_dotenv
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from jamo import JAMO, Tokenizer
 from generate import generate
@@ -30,6 +33,7 @@ fileHandler = logging.FileHandler(filename="./training.log")
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(level=logging.INFO)
+writer = SummaryWriter()
 
 def set_seed(seed=12499489):
     torch.manual_seed(seed)
@@ -51,13 +55,13 @@ def get_grouped_params(model, no_decay=["bias", "LayerNorm.weight"]):
 
 class Trainer():
     def __init__(self, batch_size:int, corpus_path: str, checkpoint_dir:str, tokenizer_path:str, save_interval:int, gradient_accumulate:int, is_wandb:bool=False, with_lr_scheduler:bool=True, load:bool=False):
-        self.learning_rate = 1e-4
+        self.learning_rate = 5e-4
         self.batch_size = batch_size
         self.max_iters = 1000000
         self.grad_clip = 1.0
         self.warmup_iters = 2000
         self.lr_decay_iters = self.max_iters
-        self.min_lr = 6e-5
+        self.min_lr = 1.5e-5 
 
         self.corpus_path = Path(corpus_path)
         self.checkpoint_dir = Path(checkpoint_dir)
@@ -85,7 +89,9 @@ class Trainer():
             self.checkpoint_dir.mkdir(exist_ok=True)
             model = JAMO.from_name("small").to(torch.device("cuda"))
             model = torch.compile(model)
-            optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
+            # optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
+            optimizer = SophiaG(model.parameters(), lr=2e-4, betas=(0.965, 0.99), rho = 0.05, weight_decay=2e-1)
+
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
         #               model_parameters=params)    
@@ -136,7 +142,7 @@ class Trainer():
                 iter += 1
 
                 if self.with_lr_scheduler:
-                    lr = self.get_lr(iter)
+                    lr = self.get_lr(iter // self.gradient_accumulate + 1)
                     for param_group in optimizer.param_groups:
                         param_group["lr"] = lr
 
@@ -146,18 +152,25 @@ class Trainer():
                     logits = model(x)
                     loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
 
+                    writer.add_scalar("Loss/train", loss.item(), iter)
                     logger.info(f"Iter {iter}: Train Loss = {loss.item():.4f}")
 
-                scaler.scale(loss).backward()
+                    scaler.scale(loss / self.gradient_accumulate).backward()
+
+                total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
 
                 if iter % self.gradient_accumulate == 0:
-                    # torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad(set_to_none=True)
 
                 if iter % self.save_interval == 0:
                     utils.save_model(iter, model, optimizer, self.checkpoint_dir)
+
+                    # Log histograms
+                    for name, param in model.named_parameters():
+                        writer.add_histogram(name, param, iter)
 
                 if self.is_wandb:
                     import wandb
@@ -168,20 +181,23 @@ class Trainer():
                     })
                 
                 if iter % 1000 == 0:
-                    self.sampling(model)
+                    self.sampling(model, iter)
 
+            writer.close()
             if self.is_wandb: 
                 import wandb
                 wandb.finish()
 
-    def sampling(self, model: JAMO):
+    def sampling(self, model: JAMO, iter: int):
         token = self.tokenizer.encode("<s>", bos=True)
-        token = torch.tensor([token], dtype=torch.long, device="cuda")
+        token = torch.tensor(token, dtype=torch.long, device="cuda")
         output = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=8, eos_id=self.tokenizer.encode("</s>")[0])
         result = self.tokenizer.decode(output)
 
+        writer.add_text('jamo', result, iter)
+        logger.info(result)
+
         with open("result.txt", "a") as f:
-            logger.info(result)
             f.write(result+"\n")
 
 
