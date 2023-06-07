@@ -88,7 +88,7 @@ class Trainer():
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
             model = JAMO.from_name("small").to(torch.device("cuda"))
-            #model = torch.compile(model)
+            model = torch.compile(model)
             # optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
             optimizer = SophiaG(model.parameters(), lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.05, weight_decay=2e-1)
 
