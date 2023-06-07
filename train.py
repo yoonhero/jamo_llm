@@ -88,9 +88,9 @@ class Trainer():
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
             model = JAMO.from_name("small").to(torch.device("cuda"))
-            model = torch.compile(model)
+            #model = torch.compile(model)
             # optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
-            optimizer = SophiaG(model.parameters(), lr=2e-4, betas=(0.965, 0.99), rho = 0.05, weight_decay=2e-1)
+            optimizer = SophiaG(model.parameters(), lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.05, weight_decay=2e-1)
 
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
@@ -157,10 +157,9 @@ class Trainer():
 
                     scaler.scale(loss / self.gradient_accumulate).backward()
 
-                total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
-
                 if iter % self.gradient_accumulate == 0:
-
+                    total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
+                    
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad(set_to_none=True)
