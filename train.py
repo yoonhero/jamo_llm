@@ -33,9 +33,9 @@ fileHandler = logging.FileHandler(filename="./training.log")
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(level=logging.INFO)
-writer = SummaryWriter()
+writer = SummaryWriter(comment="6_7_wed_22_18")
 
-def set_seed(seed=12499489):
+def set_seed(seed=12346):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
@@ -55,9 +55,9 @@ def get_grouped_params(model, no_decay=["bias", "LayerNorm.weight"]):
 
 class Trainer():
     def __init__(self, batch_size:int, corpus_path: str, checkpoint_dir:str, tokenizer_path:str, save_interval:int, gradient_accumulate:int, is_wandb:bool=False, with_lr_scheduler:bool=True, load:bool=False):
-        self.learning_rate = 5e-4
+        self.learning_rate = 3e-4
         self.batch_size = batch_size
-        self.max_iters = 1000000
+        self.max_iters = 100000
         self.grad_clip = 1.0
         self.warmup_iters = 2000
         self.lr_decay_iters = self.max_iters
@@ -87,10 +87,10 @@ class Trainer():
             model, optimizer, _ = utils.load_model(self.checkpoint_dir, self.learning_rate, best=True)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
-            model = JAMO.from_name("small").to(torch.device("cuda"))
+            model = JAMO.from_name("supersmall").to(torch.device("cuda"))
             model = torch.compile(model)
             # optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
-            optimizer = SophiaG(model.parameters(), lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.05, weight_decay=2e-1)
+            optimizer = SophiaG(model.parameters(), lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.03, weight_decay=2e-1)
 
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
@@ -136,7 +136,14 @@ class Trainer():
         scaler = torch.cuda.amp.GradScaler()
         
         iter = 0
-        while iter < self.max_iters:
+        
+        for i in range(3):
+            model.eval()    
+            self.sampling(model, 2)
+            model.train()
+
+        return
+        while iter < self.max_iters*self.gradient_accumulate:
             pbar = tqdm.tqdm(train_loader, desc=f"Iter {iter}/{self.max_iters}")
             for _, (x, y) in enumerate(pbar):
                 iter += 1
@@ -158,7 +165,7 @@ class Trainer():
                     scaler.scale(loss / self.gradient_accumulate).backward()
 
                 if iter % self.gradient_accumulate == 0:
-                    total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
                     
                     scaler.step(optimizer)
                     scaler.update()
@@ -179,8 +186,10 @@ class Trainer():
                         "lr": lr
                     })
                 
-                if iter % 1000 == 0:
+                if iter % (self.gradient_accumulate*1000) == 0:
+                    model.eval()
                     self.sampling(model, iter)
+                    model.train()
 
             writer.close()
             if self.is_wandb: 
@@ -190,7 +199,7 @@ class Trainer():
     def sampling(self, model: JAMO, iter: int):
         token = self.tokenizer.encode("<s>", bos=True)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
-        output = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=8, eos_id=self.tokenizer.encode("</s>")[0])
+        output = generate(model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=self.tokenizer.encode("</s>")[0])
         result = self.tokenizer.decode(output)
 
         writer.add_text('jamo', result, iter)
@@ -198,7 +207,7 @@ class Trainer():
 
         with open("result.txt", "a") as f:
             f.write(result+"\n")
-
+        
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ class JamoConfig:
 
 
 jamo_configs = {
+    "supersmall": dict(n_layer=12, n_heads=12, n_embed=768),
     "small": dict(n_layer=24, n_heads=16, n_embd=1024),
     "medium": dict(n_layer=30, n_heads=16, n_embd=2048),
     "large": dict(n_layer=40, n_heads=26, n_embd=6656),
@@ -199,7 +200,7 @@ class CasualAttention(nn.Module):
         return y, kv_cache
 
 
-class FeedForward(nn.Module):
+class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         hidden_dim = 4*config.n_embd
@@ -216,6 +217,30 @@ class FeedForward(nn.Module):
         x = F.silu(self.c_fc1(x)) * self.c_fc2(x)
         x = self.c_proj(x)
         return x
+
+# @torch.jit.script # good to enable when not using torch.compile, disable when using (our default)
+def new_gelu(x):
+    """
+    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
+    Reference: Gaussian Error Linear Units (GELU) paper: https://arxiv.org/abs/1606.08415
+    """
+    return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+
+
+class FeedForward(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
+        self.c_proj  = nn.Linear(4 * config.n_embd, config.n_embd, bias=False)
+        self.dropout = nn.Dropout(config.dropout)
+
+    def forward(self, x):
+        x = self.c_fc(x)
+        x = new_gelu(x)
+        x = self.c_proj(x)
+        x = self.dropout(x)
+        return x
+
 
 
 class RMSNorm(nn.Module):
