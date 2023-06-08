@@ -33,7 +33,7 @@ fileHandler = logging.FileHandler(filename="./training.log")
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(level=logging.INFO)
-writer = SummaryWriter(comment="6_7_wed_22_18")
+writer = SummaryWriter(comment=utils.current())
 
 def set_seed(seed=12346):
     torch.manual_seed(seed)
@@ -54,7 +54,8 @@ def get_grouped_params(model, no_decay=["bias", "LayerNorm.weight"]):
     return [{"params":params_with_wd, "weight_decay": 0.1}, {"params": params_without_wd, "weight_decay":0.0}]
 
 class Trainer():
-    def __init__(self, batch_size:int, corpus_path: str, checkpoint_dir:str, tokenizer_path:str, save_interval:int, gradient_accumulate:int, is_wandb:bool=False, with_lr_scheduler:bool=True, load:bool=False):
+    def __init__(self, train_mode:str, batch_size:int, corpus_path: str, checkpoint_dir:str, tokenizer_path:str, save_interval:int, gradient_accumulate:int, is_wandb:bool=False, with_lr_scheduler:bool=True, load:bool=False):
+        self.pretrain = train_mode == "pretrain"
         self.learning_rate = 3e-4
         self.batch_size = batch_size
         self.max_iters = 100000
@@ -84,7 +85,7 @@ class Trainer():
             logger.info("Initiate the WANDB")
 
         if load: 
-            model, optimizer, _ = utils.load_model(self.checkpoint_dir, self.learning_rate, best=True)
+            model, optimizer, _ = utils.load_model(self.checkpoint_dir, self.learning_rate, model_size="supersmall", best=True, pretrain=self.pretrain)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
             model = JAMO.from_name("supersmall").to(torch.device("cuda"))
@@ -113,8 +114,7 @@ class Trainer():
         g.manual_seed(1231928)
 
         dataset = IterablDataset(str(self.corpus_path), tokenizer, block_size)
-
-        train_loader = DataLoader(dataset, batch_size=self.batch_size, drop_last=True, generator=g)
+        train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         logger.info("Finishing Loading the DataLoader")
 
         return train_loader
@@ -212,6 +212,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
 
+
+    parser.add_argument("--train_mode", type=str, default="pretrain")
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument("--save_interval", type=int, default=100000)
     parser.add_argument("--gradient_accumulate", type=int, default=4)
@@ -225,6 +227,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     trainer = Trainer(
+        train_mode=args.train_mode,
         batch_size=args.batch_size,
         corpus_path=args.corpus_path,
         checkpoint_dir=args.output_dir,

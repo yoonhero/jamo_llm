@@ -10,7 +10,7 @@ class JamoConfig:
     n_embd: int
     n_heads: int
     n_layer: int
-    vocab_size: int=20000
+    vocab_size: int=17000
     block_size:int=256
     dropout: int = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 
@@ -104,8 +104,10 @@ class JAMO(nn.Module):
         return logits
 
     @classmethod
-    def from_name(cls, name: str) -> Self:
-        return cls(JamoConfig.from_name(name))
+    def from_name(cls, name: str, pretrain:bool=False) -> Self:
+        config = JamoConfig.from_name(name)
+        config.dropout = 0.0 if pretrain else 0.1
+        return cls(config)
 
     def build_rope_cache(self, idx: torch.Tensor) -> torch.Tensor:
         return build_rope_cache(

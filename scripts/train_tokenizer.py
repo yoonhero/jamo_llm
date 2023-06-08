@@ -2,7 +2,7 @@ import sentencepiece as spm
 
 corpus = "../tmp/512_chunk.txt"
 prefix = "corpus"
-vocab_size = 19993
+vocab_size = 16993
 spm.SentencePieceTrainer.train(
     f"--input={corpus} --model_prefix={prefix} --vocab_size={vocab_size + 7} --input_sentence_size=100000000 --shuffle_input_sentence=true --train_extremely_large_corpus=true" + 
     " --model_type=bpe" +

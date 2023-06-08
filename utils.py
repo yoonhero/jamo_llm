@@ -6,7 +6,9 @@ import glob
 import torch
 import torch.nn as nn
 from pathlib import Path
+import datetime
 
+from sophia import SophiaG
 from jamo import JAMO
 
 # Save the model.
@@ -16,7 +18,7 @@ def save_model(epoch: int, model, optimizer, PATH: Path) -> None:
         "optimizer": optimizer.state_dict(),
         "epoch": epoch
     }   
-    save_dir = PATH / f"iter-{epoch}.tar"
+    save_dir = PATH / f"{current()}-iter-{epoch}.tar"
     torch.save(model_state_dict, str(save_dir))
 
 def get_last_epoch(PATH: str) -> int:
@@ -29,9 +31,12 @@ def get_last_epoch(PATH: str) -> int:
     epochs = [int(filename.split("/")[-1].split(".")[0].split("-")[-1]) for filename in files]
     return max(epochs)
 
-def load_model(path: Path, learning_rate:float, best=True):
-    model = JAMO.from_name("small")
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9, 0.95))
+def load_model(path: Path, model_size:str, learning_rate:float, best=True, pretrain=True):
+    model = JAMO.from_name(model_size, pretrain=pretrain)
+    # optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9, 0.95))
+    rho = 0.03 if pretrain else 0.01
+    weight_decay = 0.2 if pretrain else 0.1
+    optimizer = SophiaG(model.parameters(), lr=learning_rate, betas=(0.965, 0.99), rho = rho, weight_decay=weight_decay)
 
     if best:
         last_epoch = get_last_epoch(str(path))
@@ -71,3 +76,9 @@ def profile(func):
         return retval
 
     return wrapper
+    
+
+def current():
+    date = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+    return date
