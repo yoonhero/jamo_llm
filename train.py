@@ -137,12 +137,6 @@ class Trainer():
         
         iter = 0
         
-        for i in range(3):
-            model.eval()    
-            self.sampling(model, 2)
-            model.train()
-
-        return
         while iter < self.max_iters*self.gradient_accumulate:
             pbar = tqdm.tqdm(train_loader, desc=f"Iter {iter}/{self.max_iters}")
             for _, (x, y) in enumerate(pbar):
@@ -220,7 +214,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument("--save_interval", type=int, default=100000)
-    parser.add_argument("--gradient_accumulate", type=int, default=6)
+    parser.add_argument("--gradient_accumulate", type=int, default=4)
     parser.add_argument("--output_dir", type=str, default="./tmp/checkpoint")
     parser.add_argument("--corpus_path", type=str, default="./tmp/512_chunk.txt")
     parser.add_argument("--tokenizer_path", type=str, default="./tokenizer/corpus.model")

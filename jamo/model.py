@@ -20,7 +20,7 @@ class JamoConfig:
 
 
 jamo_configs = {
-    "supersmall": dict(n_layer=12, n_heads=12, n_embed=768),
+    "supersmall": dict(n_layer=12, n_heads=12, n_embd=768),
     "small": dict(n_layer=24, n_heads=16, n_embd=1024),
     "medium": dict(n_layer=30, n_heads=16, n_embd=2048),
     "large": dict(n_layer=40, n_heads=26, n_embd=6656),
