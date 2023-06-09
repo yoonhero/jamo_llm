@@ -33,7 +33,6 @@ fileHandler = logging.FileHandler(filename="./training.log")
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 logger.setLevel(level=logging.INFO)
-writer = SummaryWriter(comment=utils.current())
 
 def set_seed(seed=12346):
     torch.manual_seed(seed)
@@ -91,7 +90,8 @@ class Trainer():
             model = JAMO.from_name("supersmall").to(torch.device("cuda"))
             model = torch.compile(model)
             # optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
-            optimizer = SophiaG(model.configure_optimizers(weight_decay=2e-1), lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.03)
+            optim_group = model.configure_optimizers(weight_decay=2e-1)
+            optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.03)
 
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
@@ -133,19 +133,19 @@ class Trainer():
         return self.min_lr + coeff * (self.learning_rate - self.min_lr)
     
     def train(self, model: JAMO, optimizer: optim.Optimizer, train_loader: DataLoader):
+        writer = SummaryWriter(comment=utils.current())
+
         scaler = torch.cuda.amp.GradScaler()
         
-        iter = 0
-        miniiter = 0
-        pbar = tqdm.tqdm(range(self.max_iter), desc=f"Iter {miniiter}/{self.max_iters*self.gradient_accumulate}")
+        iteration = 0
+        pbar = tqdm.tqdm(range(self.max_iters))
         for i in pbar:
-            iter = i+1
+            iteration = i+1
             for k in range(self.gradient_accumulate):
                 x, y = next(iter(train_loader))
-                miniiter = iter * self.gradient_accumulate + k + 1
 
                 if self.with_lr_scheduler:
-                    lr = self.get_lr(iter // self.gradient_accumulate + 1)
+                    lr = self.get_lr(iteration)
                     for param_group in optimizer.param_groups:
                         param_group["lr"] = lr
 
@@ -155,7 +155,7 @@ class Trainer():
                     logits = model(x)
                     loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
 
-                    writer.add_scalar("Loss/train", loss.item(), iter)
+                    writer.add_scalar("Loss/train", loss.item(), iteration)
                     logger.info(f"Iter {iter}: Train Loss = {loss.item():.4f}")
 
                     scaler.scale(loss / self.gradient_accumulate).backward()
@@ -164,12 +164,12 @@ class Trainer():
             scaler.update()
             optimizer.zero_grad(set_to_none=True)
 
-            if iter % self.save_interval == 0:
-                utils.save_model(iter, model, optimizer, self.checkpoint_dir)
+            if iteration % self.save_interval == 0:
+                utils.save_model(iteration, model, optimizer, self.checkpoint_dir)
 
                 # Log histograms
                 for name, param in model.named_parameters():
-                    writer.add_histogram(name, param, iter)
+                    writer.add_histogram(name, param, iteration)
 
             if self.is_wandb:
                 import wandb
@@ -179,9 +179,10 @@ class Trainer():
                     "lr": lr
                 })
             
-                if iter % 1000 == 0:
+                if iteration % 1000 == 0:
                     model.eval()
-                    self.sampling(model, iter)
+                    result = self.sampling(model)
+                    writer.add_text("jamo", result, iteration)
                     model.train()
 
         writer.close()
@@ -189,18 +190,18 @@ class Trainer():
             import wandb
             wandb.finish()
 
-def sampling(self, model: JAMO, iter: int):
+    def sampling(self, model: JAMO):
         token = self.tokenizer.encode("<s>", bos=True)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
         output = generate(model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=self.tokenizer.encode("</s>")[0])
         result = self.tokenizer.decode(output)
 
-        writer.add_text('jamo', result, iter)
         logger.info(result)
 
         with open("result.txt", "a") as f:
             f.write(result+"\n")
         
+        return result
 
 
 if __name__ == "__main__":
@@ -214,7 +215,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--train_mode", type=str, default="pretrain")
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument("--save_interval", type=int, default=100000)
+    parser.add_argument("--save_interval", type=int, default=10000)
     parser.add_argument("--gradient_accumulate", type=int, default=4)
     parser.add_argument("--output_dir", type=str, default="./tmp/checkpoint")
     parser.add_argument("--corpus_path", type=str, default="./tmp/512_chunk.txt")

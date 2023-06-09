@@ -10,7 +10,7 @@ class JamoConfig:
     n_embd: int
     n_heads: int
     n_layer: int
-    vocab_size: int=17000
+    vocab_size: int=20000
     block_size:int=256
     dropout: int = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 
@@ -90,12 +90,12 @@ class JAMO(nn.Module):
             rope = self.rope_cache[:T]
             mask = self.mask_cache[:, :, :T, :T]
 
-        x = self.wte(idx)
+        x = self.transformer.drop(self.transformer.wte(idx))
         # pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0)
         # pos_emb = self.wpe(pos)
 
         if input_pos is None:  # proxy for use_cache=False
-            for block in self.blocks:
+            for block in self.transformer.h:
                 x, _ = block(x, rope, mask, max_seq_length)
         else:
             if not self.kv_caches:
@@ -108,7 +108,7 @@ class JAMO(nn.Module):
             for i, block in enumerate(self.blocks):
                 x, self.kv_caches[i] = block(x, rope, mask, max_seq_length, input_pos, self.kv_caches[i])
 
-        x = self.ln_f(x)
+        x = self.transformer.ln_f(x)
 
         logits = self.lm_head(x) 
 
@@ -188,7 +188,7 @@ class Block(nn.Module):
         B, T, C = x.shape
         h, new_kv_cache = self.sa(self.rms_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
         x = h + x
-        x = x + self.ffwd(self.rms_2(x))
+        x = x + self.mlp(self.rms_2(x))
         return x, new_kv_cache
 
 
