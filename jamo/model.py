@@ -32,17 +32,24 @@ class JAMO(nn.Module):
         super().__init__()
         self.config = config
 
+        self.transformer = nn.ModuleDict(dict(
+            wte=nn.Embedding(config.vocab_size, config.n_embd),
+            drop=nn.Dropout(config.dropout),
+            h = nn.ModuleList(Block(config) for _ in range(config.n_layer)),
+            ln_f = LayerNorm(config.n_embd, bias=True)
+        ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-
-        self.wte = nn.Embedding(config.vocab_size, config.n_embd)
-        self.blocks = nn.ModuleList(Block(config) for _ in range(config.n_layer))
-        self.ln_f = RMSNorm(config.n_embd)
-
-        self.apply(self._init_weights)
+        self.transformer.wte.weight = self.lm_head.weight
 
         self.rope_cache = None
         self.mask_cache = None
         self.kv_caches = []
+
+        self.apply(self._init_weights)
+
+        for pn, p in self.named_parameters():
+            if pn.endswith('c_proj.weight'):
+                torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
 
         print(f"Number of parameters: {human_format(self.get_num_params())}")
 
@@ -53,9 +60,12 @@ class JAMO(nn.Module):
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.config.n_layer))
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.config.n_layer))
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
 
     def forward(self, idx,  max_seq_length=None, input_pos=None):
         B, T = idx.shape
@@ -80,8 +90,9 @@ class JAMO(nn.Module):
             rope = self.rope_cache[:T]
             mask = self.mask_cache[:, :, :T, :T]
 
-
         x = self.wte(idx)
+        # pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0)
+        # pos_emb = self.wpe(pos)
 
         if input_pos is None:  # proxy for use_cache=False
             for block in self.blocks:
@@ -104,7 +115,7 @@ class JAMO(nn.Module):
         return logits
 
     @classmethod
-    def from_name(cls, name: str, pretrain:bool=False) -> Self:
+    def from_name(cls, name: str, pretrain:bool=True) -> Self:
         config = JamoConfig.from_name(name)
         config.dropout = 0.0 if pretrain else 0.1
         return cls(config)
@@ -128,6 +139,39 @@ class JAMO(nn.Module):
             self.rope_cache = None
             self.mask_cache = None
 
+    def configure_optimizers(self, weight_decay=1e-1):
+        decay = set()
+        no_decay = set()
+        whitelist_weight_modules = (torch.nn.Linear, )
+        blacklist_weight_modules = (torch.nn.LayerNorm, LayerNorm, torch.nn.Embedding)
+        for mn, m in self.named_modules():
+            for pn, p in m.named_parameters():
+                fpn = '%s.%s' % (mn, pn) if mn else pn
+                if pn.endswith('bias'):
+                    no_decay.add(fpn)
+                elif pn.endswith('weight') and isinstance(m, whitelist_weight_modules):
+                    decay.add(fpn)
+                elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
+                    no_decay.add(fpn)
+
+        decay.remove('lm_head.weight')
+
+        # validate that we considered every parameter
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        inter_params = decay & no_decay
+        union_params = decay | no_decay
+        assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
+        assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
+                                                    % (str(param_dict.keys() - union_params), )
+
+        # create the pytorch optimizer object
+        optim_groups = [
+            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": weight_decay},
+            {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+        ]
+
+        return optim_groups
+
     def __repr__(self):
         return f">> {self.get_num_params()} Paramters <<"
 
@@ -135,15 +179,15 @@ class JAMO(nn.Module):
 class Block(nn.Module):
     def __init__(self, config: JamoConfig):
         super().__init__()
-        self.rms_1 = RMSNorm(config.n_embd)
+        self.rms_1 = LayerNorm(config.n_embd, bias=True)
         self.sa = CasualAttention(config)
-        self.rms_2 = RMSNorm(config.n_embd)
-        self.ffwd = FeedForward(config)
+        self.rms_2 = LayerNorm(config.n_embd, bias=True)
+        self.mlp = FeedForward(config)
     
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
         B, T, C = x.shape
         h, new_kv_cache = self.sa(self.rms_1(x), rope, mask, max_seq_length, input_pos, kv_cache)
-        x = x + h
+        x = h + x
         x = x + self.ffwd(self.rms_2(x))
         return x, new_kv_cache
 
@@ -161,10 +205,8 @@ class CasualAttention(nn.Module):
         self.n_embd = config.n_embd
         self.block_size = config.block_size
 
-        self.dropout = config.dropout
-        if config.dropout:
-            self.attn_dropout = nn.Dropout(self.dropout)
-            self.resid_drop = nn.Dropout(self.dropout)
+        self.attn_dropout = nn.Dropout(config.dropout)
+        self.resid_drop = nn.Dropout(config.dropout)
 
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
         B, T, C = x.size()
@@ -197,7 +239,7 @@ class CasualAttention(nn.Module):
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T, C)
-        y = self.resid_drop(self.c_proj(y)) if self.dropout else self.c_proj(y)
+        y = self.resid_drop(self.c_proj(y))
 
         return y, kv_cache
 
@@ -243,6 +285,17 @@ class FeedForward(nn.Module):
         x = self.dropout(x)
         return x
 
+
+class LayerNorm(nn.Module):
+    """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
+
+    def __init__(self, ndim, bias):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(ndim))
+        self.bias = nn.Parameter(torch.zeros(ndim)) if bias else None
+
+    def forward(self, input):
+        return F.layer_norm(input, self.weight.shape, self.weight, self.bias, 1e-5)
 
 
 class RMSNorm(nn.Module):
@@ -316,3 +369,8 @@ def apply_rope(x: torch.Tensor, rope_cache) -> torch.Tensor:
 
     x_out2 = x_out2.flatten(3)
     return x_out2.type_as(x)
+
+
+if __name__ == "__main__":
+    jamo = JAMO.from_name("supersmall")
+    jamo.configure_optimizers()
