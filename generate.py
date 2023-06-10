@@ -14,6 +14,7 @@ def generate(
     temperature: float = 1.0,
     top_k=None,
     eos_id=None,
+    bash=False
 ) -> torch.Tensor:
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = idx.size(0)
@@ -50,12 +51,20 @@ def generate(
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
         # if <eos> token is triggered, return the output (stop generation)
+        
+        if bash: yield idx[:input_pos]
+
         if idx_next == eos_id:
             return idx[:input_pos]  # include the EOS token
-    return idx
+
+    if not bash:
+        return idx
 
 
 if __name__ == "__main__":
+    import sys
+    from time import sleep
+
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = Path("./tmp/checkpoint")
@@ -72,16 +81,15 @@ if __name__ == "__main__":
 
         idx = tokenizer.encode(user_prompt, bos=True)
         token = torch.tensor(idx, dtype=torch.long, device=device)
-        generated = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=4, eos_id=3)
+
+        cur = 0
+        for idx in generate(model, token, max_new_tokens=128, temperature=0.8, top_k=40, eos_id=3, bash=True):
+            target = tokenizer.decode(idx)
+
+            for char in target[cur:]:
+                sys.stdout.write(char)
+                sys.stdout.flush()
+            cur = len(target)
+
         model.reset_cache()
-        words = tokenizer.decode(generated)
-
-        import sys
-        from time import sleep
-
-        for char in words:
-            sleep(0.1)
-            sys.stdout.write(char)
-            sys.stdout.flush()
-
         print("\n")
