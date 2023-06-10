@@ -105,7 +105,7 @@ class JAMO(nn.Module):
                     (torch.zeros(cache_shape, device=x.device, dtype=x.dtype), torch.zeros(cache_shape, device=x.device, dtype=x.dtype))
                     for _ in range(self.config.n_layer)
                 ]
-            for i, block in enumerate(self.blocks):
+            for i, block in enumerate(self.transformer.h):
                 x, self.kv_caches[i] = block(x, rope, mask, max_seq_length, input_pos, self.kv_caches[i])
 
         x = self.transformer.ln_f(x)

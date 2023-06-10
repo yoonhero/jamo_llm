@@ -58,8 +58,9 @@ def generate(
 
 
 if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = Path("./tmp/checkpoint")
-    model = utils.load_model(model_path, "supersmall").to("cuda")
+    model = utils.load_model(model_path, "supersmall").to(device)
     model.eval()
 
     tokenizer = Tokenizer("./tokenizer/corpus.model")
@@ -71,7 +72,7 @@ if __name__ == "__main__":
             break
 
         token = tokenizer.encode(user_prompt, bos=True)
-        token = torch.tensor(token, dtype=torch.long, device="cuda")
+        token = torch.tensor(token, dtype=torch.long, device=device)
         generating = generate(model, token, max_new_tokens=100, temperature=0.8, top_k=4, eos_id=3)
         for idx in generating:
             result = tokenizer.decode(idx)
