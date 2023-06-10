@@ -21,27 +21,30 @@ def save_model(epoch: int, model, optimizer, PATH: Path) -> None:
     save_dir = PATH / f"{current()}-iter-{epoch}.tar"
     torch.save(model_state_dict, str(save_dir))
 
-def get_last_epoch(PATH: str) -> int:
+def get_last_epoch(path: Path) -> int:
     """Get the last epoch and TAR file"""
-    path = Path(PATH)
     files = glob.glob(f"{str(path)}/*")
     if len(files) == 0:
         return None
     
-    epochs = [int(filename.split("/")[-1].split(".")[0].split("-")[-1]) for filename in files]
+    epochs = [get_epoch(filename) for filename in files]
     return max(epochs)
 
-def load_model(path: Path, model_size:str, learning_rate:float, best=True, pretrain=True):
+def get_epoch(filename: str) -> int:
+    epoch = int(filename.split("/")[-1].split(".")[0].split("-")[-1]) 
+    return epoch
+
+def prepare_for_resuming(path: Path, model_size:str, learning_rate:float, best=True, pretrain=True):
     model = JAMO.from_name(model_size, pretrain=pretrain)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9, 0.95))
     rho = 0.03 if pretrain else 0.01
     weight_decay = 0.2 if pretrain else 0.1
-    optimizer = SophiaG(model.parameters(), lr=learning_rate, betas=(0.965, 0.99), rho = rho, weight_decay=weight_decay)
+    optimizer = SophiaG(model.parameters(), lr=learning_rate, betas=(0.965, 0.99), rho=rho, weight_decay=weight_decay)
 
     if best:
-        last_epoch = get_last_epoch(str(path))
-        path = path / f"iter-{last_epoch}.tar"
-        model_state_dict = torch.load(str(path))
+        model_dirs = glob.glob(f"{str(path)}/*")
+        best_model_dir = sorted(model_dirs, key=get_epoch)[0]
+        model_state_dict = torch.load(best_model_dir)
     else:
         assert path.exists(), "Please Check the model is existed."
         model_state_dict = torch.load(str(path))
@@ -61,6 +64,30 @@ def load_model(path: Path, model_size:str, learning_rate:float, best=True, pretr
     start_epoch = model_state_dict["epoch"]
 
     return model, optimizer, start_epoch
+
+def load_model(path: Path, model_size:str, best=True):
+    model = JAMO.from_name(model_size, pretrain=True)
+
+    if best:
+        model_dirs = glob.glob(f"{str(path)}/*")
+        best_model_dir = sorted(model_dirs, key=get_epoch)[0]
+        model_state_dict = torch.load(best_model_dir)
+    else:
+        assert path.exists(), "Please Check the model is existed."
+        model_state_dict = torch.load(str(path))
+
+    state_dict = model_state_dict["model"]
+    unwanted_prefix = '_orig_mod.'
+    for k,v in list(state_dict.items()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+
+    if isinstance(model, nn.DataParallel):
+        model.module.load_state_dict(state_dict)
+    else:
+        model.load_state_dict(state_dict)
+
+    return model
 
 def profile(func):
     def wrapper(*args, **kwargs):

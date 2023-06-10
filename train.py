@@ -84,30 +84,26 @@ class Trainer():
             logger.info("Initiate the WANDB")
 
         if load: 
-            model, optimizer, _ = utils.load_model(self.checkpoint_dir, self.learning_rate, model_size="supersmall", best=True, pretrain=self.pretrain)
+            self.model, self.optimizer, _ = utils.prepare_for_resuming(self.checkpoint_dir, self.learning_rate, model_size="supersmall", best=True, pretrain=self.pretrain)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
-            model = JAMO.from_name("supersmall").to(torch.device("cuda"))
-            model = torch.compile(model)
+            self.model = JAMO.from_name("supersmall").to(torch.device("cuda"))
+            self.model:nn.Module = torch.compile(self.model, mode="reduce-overhead")
             # optimizer = optim.AdamW(model.parameters(), weight_decay=1e-1, betas=(0.9, 0.95))
-            optim_group = model.configure_optimizers(weight_decay=2e-1)
-            optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.03)
+            optim_group = self.model.configure_optimizers(weight_decay=2e-1)
+            self.optimizer:optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho = 0.03)
 
         # model_engine, optimizer, _, _ = deepspeed.initialize(args=cmd_args,
         #               model=model,
         #               model_parameters=params)    
         if self.is_wandb:
             import wandb
-            wandb.watch(model)
+            wandb.watch(self.model)
 
-        self.tokenizer = Tokenizer(tokenizer_path)
-        train_loader = self.create_dataloader(tokenizer=self.tokenizer, block_size=model.config.block_size)
+        self.tokenizer:Tokenizer = Tokenizer(tokenizer_path)
+        self.train_loader:DataLoader = self.create_dataloader(tokenizer=self.tokenizer, block_size=self.model.config.block_size)
 
-        self.train(
-            model=model,
-            optimizer=optimizer,
-            train_loader=train_loader
-        )
+        self.writer = SummaryWriter(comment=utils.current())
 
     def create_dataloader(self, tokenizer, block_size):
         g = torch.Generator()
@@ -132,44 +128,39 @@ class Trainer():
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
         return self.min_lr + coeff * (self.learning_rate - self.min_lr)
     
-    def train(self, model: JAMO, optimizer: optim.Optimizer, train_loader: DataLoader):
-        writer = SummaryWriter(comment=utils.current())
-
-        scaler = torch.cuda.amp.GradScaler()
+    def train(self):
+        self.scaler = torch.cuda.amp.GradScaler()
         
-        iteration = 0
-        pbar = tqdm.tqdm(range(self.max_iters))
-        for i in pbar:
-            iteration = i+1
-            for k in range(self.gradient_accumulate):
-                x, y = next(iter(train_loader))
+        pbar = tqdm.tqdm(range(1, self.max_iters+1))
+        for iteration in pbar:
+            if self.with_lr_scheduler:
+                lr = self.get_lr(iteration)
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] = lr
 
-                if self.with_lr_scheduler:
-                    lr = self.get_lr(iteration)
-                    for param_group in optimizer.param_groups:
-                        param_group["lr"] = lr
-
-                with torch.cuda.amp.autocast():
-                    # torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
-
-                    logits = model(x)
-                    loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
-
-                    writer.add_scalar("Loss/train", loss.item(), iteration)
-                    logger.info(f"Iter {iter}: Train Loss = {loss.item():.4f}")
-
-                    scaler.scale(loss / self.gradient_accumulate).backward()
-            
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad(set_to_none=True)
+            for _ in range(self.gradient_accumulate):
+                x, y = next(iter(self.train_loader))
+                loss = self.step(x, y)
+               
+                self.writer.add_scalar("Loss/train", loss.item(), iteration)
+                logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
+    
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.optimizer.zero_grad(set_to_none=True)
 
             if iteration % self.save_interval == 0:
-                utils.save_model(iteration, model, optimizer, self.checkpoint_dir)
+                utils.save_model(iteration, self.model, self.optimizer, self.checkpoint_dir)
+            
+            if iteration % 1000 == 0:
+                self.model.eval()
+                result = self.sampling(self.model)
+                self.writer.add_text("jamo", result, iteration)
+                self.model.train()
 
-                # Log histograms
-                for name, param in model.named_parameters():
-                    writer.add_histogram(name, param, iteration)
+            # Log model weight histograms
+            for name, param in self.model.named_parameters():
+                self.writer.add_histogram(name, param, iteration)
 
             if self.is_wandb:
                 import wandb
@@ -179,25 +170,27 @@ class Trainer():
                     "lr": lr
                 })
             
-                if iteration % 1000 == 0:
-                    model.eval()
-                    result = self.sampling(model)
-                    writer.add_text("jamo", result, iteration)
-                    model.train()
-
-        writer.close()
+        self.writer.close()
         if self.is_wandb: 
             import wandb
             wandb.finish()
 
-    def sampling(self, model: JAMO):
-        token = self.tokenizer.encode("<s>", bos=True)
+    def step(self, x:torch.tensor, y:torch.tensor):
+        with torch.cuda.amp.autocast():
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), self.grad_clip)
+            logits = self.model(x)
+            loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
+            self.scaler.scale(loss / self.gradient_accumulate).backward()
+
+        return loss
+
+    def sampling(self):
+        token = self.tokenizer.encode("", bos=True)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
-        output = generate(model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=self.tokenizer.encode("</s>")[0])
+        output = generate(self.model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=self.tokenizer.eos_id)
         result = self.tokenizer.decode(output)
 
         logger.info(result)
-
         with open("result.txt", "a") as f:
             f.write(result+"\n")
         
@@ -211,7 +204,6 @@ if __name__ == "__main__":
     # torch.set_default_device('cuda')
 
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
-
 
     parser.add_argument("--train_mode", type=str, default="pretrain")
     parser.add_argument('--batch_size', type=int, default=64)
@@ -238,3 +230,5 @@ if __name__ == "__main__":
         with_lr_scheduler=args.with_lr_scheduler,
         load=args.load_model
     )
+
+    trainer.train()
