@@ -59,7 +59,7 @@ def generate(
 
 if __name__ == "__main__":
     model_path = Path("./tmp/checkpoint")
-    model = utils.load_model(model_path, "supersmall")
+    model = utils.load_model(model_path, "supersmall").to("cuda")
     model.eval()
 
     tokenizer = Tokenizer("./tokenizer/corpus.model")
