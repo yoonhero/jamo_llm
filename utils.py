@@ -86,7 +86,7 @@ def load_model(path: Path, model_size:str, best=True):
         model.module.load_state_dict(state_dict)
     else:
         model.load_state_dict(state_dict)
-
+    model.eval()
     return model
 
 def profile(func):

@@ -28,7 +28,7 @@ jamo_configs = {
 }
 
 class JAMO(nn.Module):
-    def __init__(self, config: JamoConfig) -> None:
+    def __init__(self, config: JamoConfig, pretrain:bool=True) -> None:
         super().__init__()
         self.config = config
 
@@ -45,13 +45,15 @@ class JAMO(nn.Module):
         self.mask_cache = None
         self.kv_caches = []
 
-        self.apply(self._init_weights)
+        if pretrain:
+            self.apply(self._init_weights)
 
-        for pn, p in self.named_parameters():
-            if pn.endswith('c_proj.weight'):
-                torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
+            for pn, p in self.named_parameters():
+                if pn.endswith('c_proj.weight'):
+                    torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
 
-        print(f"Number of parameters: {human_format(self.get_num_params())}")
+            print(f"Number of parameters: {human_format(self.get_num_params())}")
+
 
     def get_num_params(self):
         n_params = [p.nelement() for p in self.parameters()]
@@ -118,7 +120,21 @@ class JAMO(nn.Module):
     def from_name(cls, name: str, pretrain:bool=True) -> Self:
         config = JamoConfig.from_name(name)
         config.dropout = 0.0 if pretrain else 0.1
-        return cls(config)
+        return cls(config, pretrain)
+    
+    @classmethod
+    def from_pretrained(cls, name: str, path: str, device:torch.device=torch.device("cuda")) -> Self:
+        model = JAMO.from_name(name).to(device)
+        model_state_dict = torch.load(path)
+        state_dict = model_state_dict["model"]
+        unwanted_prefix = '_orig_mod.'
+        for k,v in list(state_dict.items()):
+            if k.startswith(unwanted_prefix):
+                state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+        model.load_state_dict(state_dict)
+
+        model.eval()
+        return model
 
     def build_rope_cache(self, idx: torch.Tensor) -> torch.Tensor:
         return build_rope_cache(

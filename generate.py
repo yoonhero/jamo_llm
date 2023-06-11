@@ -1,8 +1,5 @@
 import torch
-from pathlib import Path
-
 from jamo import JAMO, Tokenizer
-import utils
 
 @torch.no_grad()
 def generate(
@@ -63,15 +60,26 @@ def generate(
 
 if __name__ == "__main__":
     import sys
-    from time import sleep
+    from pathlib import Path
+    import argparse
+    import glob
+    import utils
+
+    parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
+    parser.add_argument("--model_path", type=str, default="./tmp/ckeckpoint/")
+    args = parser.parse_args()
+
+    tokenizer = Tokenizer("./tokenizer/corpus.model")
 
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_path = Path("./tmp/checkpoint")
-    model = utils.load_model(model_path, "supersmall").to(device)
-    model.eval()
+    model_path = Path(args.model_path)
+    if not model_path.is_file():
+        model_dirs = glob.glob(f"{str(model_path)}/*")
+        model_path = sorted(model_dirs, key=utils.get_epoch)[0]        
+    model = JAMO.from_pretrained("supersmall", str(model_path), device=device)
 
-    tokenizer = Tokenizer("./tokenizer/corpus.model")
+    print("⭐️ Loading LLM Done! ⭐️")
 
     while True:
         user_prompt = input(">>> ")
