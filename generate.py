@@ -1,4 +1,9 @@
 import torch
+import sys
+from pathlib import Path
+import argparse
+import glob
+import utils
 from jamo import JAMO, Tokenizer
 
 @torch.no_grad()
@@ -59,14 +64,8 @@ def generate(
 
 
 if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    import argparse
-    import glob
-    import utils
-
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
-    parser.add_argument("--model_path", type=str, default="./tmp/ckeckpoint/")
+    parser.add_argument("--model_path", type=str, default="/home/jovyan/jamo_llm/tmp/checkpoint/")
     args = parser.parse_args()
 
     tokenizer = Tokenizer("./tokenizer/corpus.model")
@@ -75,7 +74,9 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = Path(args.model_path)
     if not model_path.is_file():
-        model_dirs = glob.glob(f"{str(model_path)}/*")
+        path = f"{str(model_path)}/*"
+        print(path)
+        model_dirs = glob.glob(path)
         model_path = sorted(model_dirs, key=utils.get_epoch)[0]        
     model = JAMO.from_pretrained("supersmall", str(model_path), device=device)
 
