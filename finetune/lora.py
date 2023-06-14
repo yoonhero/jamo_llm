@@ -1,13 +1,11 @@
-import torch
-import torch.nn as nn
 import argparse
 from torch.utils.data import DataLoader
 from pathlib import Path
 import torch
-from jamo import JAMO, Tokenizer
+from jamo import Tokenizer
 from generate import generate
 import utils
-from trainer import Trainer
+from jamo.trainer import Trainer
 import sys
 
 wd = Path(__file__).parent.parent.resolve()

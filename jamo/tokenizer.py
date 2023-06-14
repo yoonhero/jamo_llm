@@ -1,11 +1,14 @@
 import os
 from pathlib import Path
 from typing import Optional
+from dataclasses import dataclass
+
 
 import torch
 from sentencepiece import SentencePieceProcessor, SentencePieceTrainer
 
-# https://github.com/Lightning-AI/lit-llama/blob/main/lit_llama/tokenizer.py
+
+@dataclass
 class Tokenizer:
     """Tokenizer for LLaMA."""
     def __init__(self, model_path: Path) -> None:

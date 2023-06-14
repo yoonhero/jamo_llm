@@ -9,11 +9,13 @@ from pathlib import Path
 import numpy as np
 import h5py
 import utils
+from transformers import AutoTokenizer, GPT2TokenizerFast
+from typing import Optional, Union
 
 from jamo import Tokenizer
 
 class IterablDataset(Dataset):
-    def __init__(self, corpus: Path, tokenizer: Tokenizer, block_size: int, cache_dir=""):
+    def __init__(self, corpus: Path, tokenizer: Union[Tokenizer, AutoTokenizer], block_size: int, cache_dir=""):
         self.block_size = block_size
         self.tokenizer = tokenizer
 
@@ -49,7 +51,10 @@ class IterablDataset(Dataset):
         self.from_cache = True
 
     def _collate_fn(self, text):
-        token = self.tokenizer.encode(text, bos=False, eos=False, max_length=self.block_size+1, pad=True)
+        is_custom = isinstance(self.tokenizer, Tokenizer)
+        kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if is_custom else {
+            "max_length": 200, "truncation": True}
+        token = self.tokenizer.encode(text, **kwargs)
         return token
 
     def __getitem__(self, idx):
@@ -60,7 +65,7 @@ class IterablDataset(Dataset):
             token = self._collate_fn(text)
         else:
             token = self.tokens[idx]
-        
+
         x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
         y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
 
@@ -75,47 +80,56 @@ class IterablDataset(Dataset):
 
 PROMPT_DICT = {
     "prompt_input": (
-        "아래는 작업을 설명하는 명령어와 추가적 맥락을 제공하는 입력이 짝을 이루는 예제입니다.\n\n"
         "요청을 적절히 완료하는 응답을 작성하세요.\n\n"
         "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:"
     ),
     "prompt_no_input": (
-        "아래는 작업을 설명하는 명령어입니다.\n\n"
         "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
         "### 명령어:\n{instruction}\n\n### 응답:"
     ),
 }
 
+
+def _preprocess_hg(strings, tokenizer:GPT2TokenizerFast, block_size):
+    tokenized_list = [
+        tokenizer(
+            text,
+            padding="longest",
+            truncation=True
+        )["input_ids"]
+        for text in strings
+    ]
+
+    return tokenized_list
+
+def _preprocess_spm(strings, tokenizer: Tokenizer, block_size):
+    tokened_list = [tokenizer.encode(text, bos=False, eos=False, max_length=block_size + 1, pad=True) for text in strings]
+    return tokened_list
+
+
 class PromptDataset(Dataset):
-    def __init__(self, corpus: Path, tokenizer: Tokenizer, block_size: int):
-        self.block_size = block_size
-        self.tokenizer = tokenizer
-
-        self.pool_size = 4
-
-        self.texts = []
-
-        with open(corpus, "r", encoding="utf-8") as f:
+    def __init__(self, data_path: str, tokenizer: Union[Tokenizer, GPT2TokenizerFast], block_size):
+        super().__init__()
+        with open(data_path, "r", "utf-8") as f:
             list_data_dict = json.load(f)
-        
 
-    def _collate_fn(self, text):
-        token = self.tokenizer.encode(text, bos=False, eos=False, max_length=self.block_size + 1, pad=True)
-        return token
+        prompt_input, prompt_no_input = PROMPT_DICT["prompt_input"], PROMPT_DICT["prompt_no_input"]
+        sources = [
+            prompt_input.format_map(example) if example.get("input", "") != "" else prompt_no_input.format_map(example)
+            for example in list_data_dict
+        ]
+        targets = [f"{example['output']}{tokenizer.eos_token}" for example in list_data_dict]
 
-    def __getitem__(self, idx):
-        token = None
-        # start, end = idx * (self.block_size+1), (idx+1) * (self.block_size)
-        if not self.from_cache:
-            text = self.texts[idx]
-            token = self._collate_fn(text)
-        else:
-            token = self.tokens[idx]
-
-        x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
-        y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
-
-        return x, y
+        data = [source+target for source, target in zip(sources, targets)]
+        _preprocess = _preprocess_spm if isinstance(tokenizer, Tokenizer) else _preprocess_hg
+        self.input_ids = _preprocess(data, tokenizer, block_size)
 
     def __len__(self):
         return len(self.input_ids)
+
+    def __getitem__(self, idx:int):
+        text = self.input_ids[idx]
+        x = torch.LongTensor(text[:-1], device="cuda")
+        y = torch.LongTensor(text[1:], device="cuda")
+
+        return x, y

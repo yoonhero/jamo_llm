@@ -9,6 +9,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from generate import generate
+from jamo import Tokenizer
 import utils
 
 class Trainer():
@@ -21,7 +22,7 @@ class Trainer():
                  ):
         self.learning_rate = 3e-4
         self.batch_size = batch_size
-        self.max_iters = 100000
+        self.max_iters = 2000
 
         self.corpus_path: Path = Path(corpus_path)
         self.checkpoint_dir: Path = Path(checkpoint_dir)
@@ -90,9 +91,13 @@ class Trainer():
         return loss
 
     def sampling(self):
-        token = self.tokenizer.encode("", bos=True)
+        is_custom = isinstance(self.tokenizer, Tokenizer)
+        encode = self.tokenizer.encode if is_custom else self.tokenizer
+        kwargs = {"bos": True} if is_custom else {""}
+        token = encode("", **kwargs)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
-        output = generate(self.model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=self.tokenizer.eos_id)
+        eos_id = self.tokenizer.eos_id if is_custom else self.tokenzer("</s>")
+        output = generate(self.model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=eos_id)
         result = self.tokenizer.decode(output)
 
         self.logger.info(result)
