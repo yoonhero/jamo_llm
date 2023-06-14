@@ -19,7 +19,7 @@ class Trainer():
     model: Optional[torch.nn.Module] = None
     optimizer: Optional[torch.optim.Optimizer] = None
     train_loader: Optional[DataLoader] = None
-    tokenizer: Optional[GPT2TokenizerFast, Tokenizer] = None
+    tokenizer: Optional[Union[GPT2TokenizerFast, Tokenizer]] = None
 
     def __init__(self, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
                  save_interval: int, eval_interval: int, gradient_accumulate: int
