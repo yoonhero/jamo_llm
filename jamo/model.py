@@ -5,6 +5,7 @@ import math
 from dataclasses import dataclass
 from typing_extensions import Self
 
+
 @dataclass 
 class JamoConfig: 
     n_embd: int
@@ -124,8 +125,8 @@ class JAMO(nn.Module):
     
     @classmethod
     def from_pretrained(cls, name: str, path: str, device:torch.device=torch.device("cuda")) -> Self:
-        model = JAMO.from_name(name).to(device)
-        model_state_dict = torch.load(path)
+        model = JAMO.from_name(name)
+        model_state_dict = torch.load(path, map_location="cpu")
         state_dict = model_state_dict["model"]
         unwanted_prefix = '_orig_mod.'
         for k,v in list(state_dict.items()):
@@ -133,6 +134,7 @@ class JAMO(nn.Module):
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
 
+        model = model.to(device)
         model.eval()
         return model
 
@@ -212,17 +214,21 @@ class CasualAttention(nn.Module):
     def __init__(self, config: JamoConfig) -> None:
         super().__init__()
         assert config.n_embd % config.n_heads == 0, "Please Check Embedding and Heads Number Config."
-        self.head_size = config.n_embd//config.n_heads
+        self.head_size = config.n_embd // config.n_heads
 
-        self.c_attn = nn.Linear(config.n_embd, config.n_embd*3, bias=False)
+        self.c_attn = nn.Linear(config.n_embd, config.n_embd * 3, bias=False)
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
-    
+
         self.n_head = config.n_heads
         self.n_embd = config.n_embd
         self.block_size = config.block_size
 
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_drop = nn.Dropout(config.dropout)
+
+        if not is_torch_2():
+            self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
+                                 .view(1, 1, config.block_size, config.block_size))
 
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
         B, T, C = x.size()
@@ -252,7 +258,13 @@ class CasualAttention(nn.Module):
             v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
-        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
+        if is_torch_2():
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
+        else:
+            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))  # (B, N_HEADS, T, T)
+            att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+            att = F.softmax(att, dim=-1)
+            y = att @ v  # (B, nh, T, hs)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T, C)
         y = self.resid_drop(self.c_proj(y))
@@ -385,6 +397,11 @@ def apply_rope(x: torch.Tensor, rope_cache) -> torch.Tensor:
 
     x_out2 = x_out2.flatten(3)
     return x_out2.type_as(x)
+
+
+def is_torch_2():
+    return torch.__version__[0] == "2"
+
 
 
 if __name__ == "__main__":

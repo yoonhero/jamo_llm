@@ -1,3 +1,5 @@
+import json
+
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -69,3 +71,51 @@ class IterablDataset(Dataset):
     
     def __repr__(self) -> str:
         return f"Total {self.num_subsets} subsets."
+
+
+PROMPT_DICT = {
+    "prompt_input": (
+        "아래는 작업을 설명하는 명령어와 추가적 맥락을 제공하는 입력이 짝을 이루는 예제입니다.\n\n"
+        "요청을 적절히 완료하는 응답을 작성하세요.\n\n"
+        "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:"
+    ),
+    "prompt_no_input": (
+        "아래는 작업을 설명하는 명령어입니다.\n\n"
+        "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
+        "### 명령어:\n{instruction}\n\n### 응답:"
+    ),
+}
+
+class PromptDataset(Dataset):
+    def __init__(self, corpus: Path, tokenizer: Tokenizer, block_size: int):
+        self.block_size = block_size
+        self.tokenizer = tokenizer
+
+        self.pool_size = 4
+
+        self.texts = []
+
+        with open(corpus, "r", encoding="utf-8") as f:
+            list_data_dict = json.load(f)
+        
+
+    def _collate_fn(self, text):
+        token = self.tokenizer.encode(text, bos=False, eos=False, max_length=self.block_size + 1, pad=True)
+        return token
+
+    def __getitem__(self, idx):
+        token = None
+        # start, end = idx * (self.block_size+1), (idx+1) * (self.block_size)
+        if not self.from_cache:
+            text = self.texts[idx]
+            token = self._collate_fn(text)
+        else:
+            token = self.tokens[idx]
+
+        x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
+        y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
+
+        return x, y
+
+    def __len__(self):
+        return len(self.input_ids)

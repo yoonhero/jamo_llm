@@ -89,6 +89,9 @@ def load_model(path: Path, model_size:str, best=True):
     model.eval()
     return model
 
+def is_torch_2():
+    return torch.__version__[0] == "2"
+
 def profile(func):
     def wrapper(*args, **kwargs):
         pr = cProfile.Profile()

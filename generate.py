@@ -74,10 +74,10 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = Path(args.model_path)
     if not model_path.is_file():
-        path = f"{str(model_path)}/*"
-        print(path)
-        model_dirs = glob.glob(path)
-        model_path = sorted(model_dirs, key=utils.get_epoch)[0]        
+        model_path = f"{str(model_path.absolute())}/*"
+        model_dirs = glob.glob(model_path)
+        assert len(model_dirs) != 0, "Please check the directory."
+        model_path = sorted(model_dirs, key=utils.get_epoch)[0]
     model = JAMO.from_pretrained("supersmall", str(model_path), device=device)
 
     print("⭐️ Loading LLM Done! ⭐️")
@@ -102,3 +102,4 @@ if __name__ == "__main__":
 
         model.reset_cache()
         print("\n")
+
