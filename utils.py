@@ -8,6 +8,8 @@ import torch.nn as nn
 from pathlib import Path
 import datetime
 import os
+import random
+import numpy as np
 
 from sophia import SophiaG
 from jamo import JAMO
@@ -94,7 +96,15 @@ def is_torch_2():
     return torch.__version__[0] == "2"
 
 def tokenizer_setting():
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    os.environ["TOKENIZERS_PARALLELISM"] = "true"
+
+def set_seed(seed=12346):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
 
 def profile(func):
     def wrapper(*args, **kwargs):

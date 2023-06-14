@@ -21,14 +21,6 @@ import utils
 from dataset import IterablDataset
 
 
-def set_seed(seed=12346):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-
 class PreTrainer(Trainer):
     def __init__(self, train_mode: str, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
                  save_interval: int, eval_interval: int, gradient_accumulate: int,
@@ -82,7 +74,7 @@ class PreTrainer(Trainer):
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
-    set_seed()
+    utils.set_seed()
 
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
 

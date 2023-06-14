@@ -45,10 +45,10 @@ class Trainer():
         return NotImplementedError
 
     def init_logger(self) -> None:
-        self.writer = SummaryWriter(comment=utils.current())
+        self.writer = SummaryWriter("../runs", comment=utils.current())
         self.logger = logging.getLogger(__name__)
         formatter = logging.Formatter('[%(asctime)s] [%(levelname)s | %(filename)s : %(lineno)s] >> %(message)s')
-        fileHandler = logging.FileHandler(filename="./training.log")
+        fileHandler = logging.FileHandler(filename="../training.log")
         fileHandler.setFormatter(formatter)
         self.logger.addHandler(fileHandler)
         self.logger.setLevel(level=logging.INFO)
@@ -108,7 +108,7 @@ class Trainer():
         result = self.tokenizer.decode(output)
 
         self.logger.info(result)
-        with open("result.txt", "a") as f:
+        with open("../result.txt", "a") as f:
             f.write(result + "\n")
 
         return result
