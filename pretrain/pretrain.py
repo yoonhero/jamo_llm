@@ -48,7 +48,7 @@ class PreTrainer(Trainer):
         self.max_iters = 300000
         self.warmup_iters = 2000
         self.lr_decay_iters = self.max_iters
-        self.min_lr = 1.5e-5
+        self.min_lr = 2e-5
 
         if load:
             self.model, self.optimizer, _ = utils.prepare_for_resuming(self.checkpoint_dir, self.learning_rate,
@@ -116,10 +116,11 @@ if __name__ == "__main__":
     parser.add_argument("--train_mode", type=str, default="pretrain")
     parser.add_argument('--batch_size', type=int, default=120)
     parser.add_argument("--save_interval", type=int, default=10000)
+    parser.add_argument("--eval_interval", type=int, default=1000)
     parser.add_argument("--gradient_accumulate", type=int, default=4)
     parser.add_argument("--output_dir", type=str, default="../tmp/checkpoint")
     parser.add_argument("--corpus_path", type=str, default="../tmp/cleaned_512.txt")
-    parser.add_argument("--tokenizer_path", type=str, default="../tokenizer/corpus.model")
+    parser.add_argument("--tokenizer_path", type=str, default="../hg_tokenizer")
     parser.add_argument('--load_model', action='store_true')
     parser.add_argument("--with_lr_scheduler", action="store_true")
 
@@ -132,6 +133,7 @@ if __name__ == "__main__":
         checkpoint_dir=args.output_dir,
         tokenizer_path=args.tokenizer_path,
         save_interval=args.save_interval,
+        eval_interval=args.eval_interval,
         gradient_accumulate=args.gradient_accumulate,
         load=args.load_model
     )
