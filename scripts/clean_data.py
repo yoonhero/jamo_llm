@@ -30,7 +30,7 @@ import re
 import regex
 
 def clean_str(text):
-    clean(text, )
+    text = clean(text, punct, punct_mapping)
     pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'  # E-mail제거
     text = re.sub(pattern, '', text)
     pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'  # URL제거
