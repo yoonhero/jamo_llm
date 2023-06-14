@@ -45,7 +45,7 @@ class Trainer():
         return NotImplementedError
 
     def init_logger(self) -> None:
-        self.writer = SummaryWriter("../runs", comment=utils.current())
+        self.writer = SummaryWriter(comment=utils.current())
         self.logger = logging.getLogger(__name__)
         formatter = logging.Formatter('[%(asctime)s] [%(levelname)s | %(filename)s : %(lineno)s] >> %(message)s')
         fileHandler = logging.FileHandler(filename="../training.log")
@@ -76,8 +76,8 @@ class Trainer():
 
                 loss = minibatch(x, y)
 
-                self.writer.add_scalar("Loss/train", loss.item(), iteration)
-                self.logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
+            self.writer.add_scalar("Loss/train", loss.item(), iteration)
+            self.logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
 
             self.scaler.step(self.optimizer)
             self.scaler.update()
