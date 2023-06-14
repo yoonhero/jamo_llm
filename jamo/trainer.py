@@ -104,8 +104,7 @@ class Trainer():
         token = self.tokenizer.encode("" if is_custom else "<s>", **kwargs)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
         eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
-        output = generate(self.model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=eos_id)
-        output = output if is_custom else output["input_ids"]
+        output = generate(self.model, token, max_new_tokens=100, temperature=0.8, top_k=4, eos_id=eos_id)
         result = self.tokenizer.decode(output)
 
         self.logger.info(result)
