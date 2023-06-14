@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 import datetime
+import os
 
 from sophia import SophiaG
 from jamo import JAMO
@@ -91,6 +92,9 @@ def load_model(path: Path, model_size:str, best=True):
 
 def is_torch_2():
     return torch.__version__[0] == "2"
+
+def tokenizer_setting():
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def profile(func):
     def wrapper(*args, **kwargs):

@@ -36,6 +36,7 @@ class Trainer():
         self.eval_interval = eval_interval
 
         self.init_logger()
+        utils.tokenizer_setting()
 
     def create_dataloader(self, tokenizer, block_size):
         return NotImplementedError
