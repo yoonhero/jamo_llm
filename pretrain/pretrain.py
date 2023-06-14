@@ -1,32 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sophia import SophiaG
 import argparse
 from torch.utils.data import DataLoader
-import tqdm
 import random
 import numpy as np
-import time
-import logging
 import math
 from pathlib import Path
-# import deepspeed
-import os
-from dotenv import load_dotenv
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import sys
 from transformers import AutoTokenizer
 
+wd = Path(__file__).parent.parent.resolve()
+sys.path.append(str(wd))
+
+from sophia import SophiaG
 from jamo.trainer import Trainer
 from jamo import JAMO, Tokenizer
 from generate import generate
 import utils
 from dataset import IterablDataset
-
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
 
 
 def set_seed(seed=12346):
