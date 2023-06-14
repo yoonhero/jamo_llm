@@ -79,7 +79,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
 
     parser.add_argument("--train_mode", type=str, default="pretrain")
-    parser.add_argument('--batch_size', type=int, default=120)
+    parser.add_argument('--batch_size', type=int, default=80)
     parser.add_argument("--save_interval", type=int, default=10000)
     parser.add_argument("--eval_interval", type=int, default=1000)
     parser.add_argument("--gradient_accumulate", type=int, default=4)
