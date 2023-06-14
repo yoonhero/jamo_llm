@@ -8,3 +8,4 @@ numpy~=1.24.3
 tensorboard
 tokenizers
 regex
+transformers

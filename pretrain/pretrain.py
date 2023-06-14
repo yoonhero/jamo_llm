@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.optim as optim
 import argparse
@@ -28,13 +27,11 @@ def set_seed(seed=12346):
     random.seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
 
 
 class PreTrainer(Trainer):
     def __init__(self, train_mode: str, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
-                 save_interval: int, eval_interval: int,gradient_accumulate: int,
+                 save_interval: int, eval_interval: int, gradient_accumulate: int,
                  load: bool = False):
         Trainer.__init__(self, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
         self.pretrain = train_mode == "pretrain"
@@ -44,9 +41,8 @@ class PreTrainer(Trainer):
         self.min_lr = 2e-5
 
         if load:
-            self.model, self.optimizer, _ = utils.prepare_for_resuming(self.checkpoint_dir, self.learning_rate,
-                                                                       model_size="small", best=True,
-                                                                       pretrain=self.pretrain)
+            self.model, self.optimizer, _ = utils.prepare_for_resuming(self.checkpoint_dir, "small", self.learning_rate,
+                                                                     best=True, pretrain=self.pretrain)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
             self.model: nn.Module = JAMO.from_name("small").to(torch.device("cuda"))
@@ -82,22 +78,6 @@ class PreTrainer(Trainer):
         assert 0 <= decay_ratio <= 1
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
         return self.min_lr + coeff * (self.learning_rate - self.min_lr)
-
-    def sampling(self):
-        is_custom = isinstance(self.tokenizer, Tokenizer)
-        kwargs = {"bos": True} if is_custom else {}
-        token = self.tokenizer.encode("", **kwargs)
-        token = torch.tensor(token, dtype=torch.long, device="cuda")
-        eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
-        output = generate(self.model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=eos_id)
-        output = output if is_custom else output["input_ids"]
-        result = self.tokenizer.decode(output)
-
-        self.logger.info(result)
-        with open("result.txt", "a") as f:
-            f.write(result + "\n")
-
-        return result
 
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@ from pathlib import Path
 import sys
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader
+from typing import Optional, Union
+from transformers import GPT2TokenizerFast
 
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -13,9 +16,10 @@ from jamo import Tokenizer
 import utils
 
 class Trainer():
-    model = None
-    optimizer = None
-    train_loader = None
+    model: Optional[torch.nn.Module] = None
+    optimizer: Optional[torch.optim.Optimizer] = None
+    train_loader: Optional[DataLoader] = None
+    tokenizer: Optional[GPT2TokenizerFast, Tokenizer] = None
 
     def __init__(self, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
                  save_interval: int, eval_interval: int, gradient_accumulate: int
@@ -59,7 +63,16 @@ class Trainer():
 
             for _ in range(self.gradient_accumulate):
                 x, y = next(iter(self.train_loader))
-                loss = self.step(x, y)
+
+                def minibatch(x, y):
+                    with torch.cuda.amp.autocast():
+                        logits = self.model(x)
+                        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1),
+                                                                 ignore_index=-1)
+                        self.scaler.scale(loss / self.gradient_accumulate).backward()
+                        return loss
+
+                loss = minibatch(x, y)
 
                 self.writer.add_scalar("Loss/train", loss.item(), iteration)
                 self.logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
@@ -83,21 +96,14 @@ class Trainer():
 
         self.writer.close()
 
-    @torch.cuda.amp.autocast
-    def step(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        logits = self.model(x)
-        loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
-        self.scaler.scale(loss / self.gradient_accumulate).backward()
-        return loss
-
     def sampling(self):
         is_custom = isinstance(self.tokenizer, Tokenizer)
-        encode = self.tokenizer.encode if is_custom else self.tokenizer
-        kwargs = {"bos": True} if is_custom else {""}
-        token = encode("", **kwargs)
+        kwargs = {"bos": True} if is_custom else {}
+        token = self.tokenizer.encode("" if is_custom else "<s>", **kwargs)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
-        eos_id = self.tokenizer.eos_id if is_custom else self.tokenzer("</s>")
+        eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
         output = generate(self.model, token, max_new_tokens=60, temperature=0.8, top_k=4, eos_id=eos_id)
+        output = output if is_custom else output["input_ids"]
         result = self.tokenizer.decode(output)
 
         self.logger.info(result)
