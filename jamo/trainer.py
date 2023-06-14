@@ -53,6 +53,7 @@ class Trainer():
         self.logger.addHandler(fileHandler)
         self.logger.setLevel(level=logging.INFO)
 
+    @utils.profile
     def train(self):
         self.scaler = torch.cuda.amp.GradScaler()
 
@@ -91,9 +92,9 @@ class Trainer():
                 self.writer.add_text("jamo", result, iteration)
                 self.model.train()
 
-            # Log model weight histograms
-            for name, param in self.model.named_parameters():
-                self.writer.add_histogram(name, param, iteration)
+                # Log model weight histograms
+                for name, param in self.model.named_parameters():
+                    self.writer.add_histogram(name, param, iteration)
 
         self.writer.close()
 
