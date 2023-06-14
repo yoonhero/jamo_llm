@@ -7,3 +7,4 @@ torch~=2.0.1
 numpy~=1.24.3
 tensorboard
 tokenizers
+regex
