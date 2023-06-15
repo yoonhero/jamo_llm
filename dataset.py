@@ -54,6 +54,8 @@ class IterablDataset(Dataset):
         is_custom = isinstance(self.tokenizer, Tokenizer)
         kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if is_custom else {
             "max_length": 200, "truncation": True, "padding": "max_length"}
+
+        text = text if is_custom else f"<s> {text} </s>"
         token = self.tokenizer.encode(text, **kwargs)
         return token
 

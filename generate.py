@@ -49,18 +49,13 @@ def generate(
 
         # advance
         input_pos = input_pos[-1:] + 1
-
         # concatenate the new generation
         idx = idx.index_copy(0, input_pos, idx_next)
         # if <eos> token is triggered, return the output (stop generation)
-
-        if bash: yield idx[:input_pos]
-
         if idx_next == eos_id:
             return idx[:input_pos]  # include the EOS token
 
-    if not bash:
-        return idx
+    return idx
 
 
 @torch.no_grad()
@@ -110,13 +105,10 @@ def bash_generate(
         idx = idx.index_copy(0, input_pos, idx_next)
         # if <eos> token is triggered, return the output (stop generation)
 
-        if bash: yield idx[:input_pos]
-
         if idx_next == eos_id:
             return idx[:input_pos]  # include the EOS token
 
-    if not bash:
-        return idx
+        yield idx[:input_pos]
 
 
 if __name__ == "__main__":
@@ -124,7 +116,9 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, default="/home/jovyan/jamo_llm/tmp/checkpoint/")
     args = parser.parse_args()
 
-    tokenizer = Tokenizer("./tokenizer/corpus.model")
+    #tokenizer = Tokenizer("./tokenizer/corpus.model")
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
 
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -134,7 +128,7 @@ if __name__ == "__main__":
         model_dirs = glob.glob(model_path)
         assert len(model_dirs) != 0, "Please check the directory."
         model_path = sorted(model_dirs, key=utils.get_epoch)[0]
-    model = JAMO.from_pretrained("supersmall", str(model_path), device=device)
+    model = JAMO.from_pretrained("small", str(model_path), device=device)
 
     print("⭐️ Loading LLM Done! ⭐️")
 
@@ -144,7 +138,7 @@ if __name__ == "__main__":
         if user_prompt == "q":
             break
 
-        idx = tokenizer.encode(user_prompt, bos=True)
+        idx = tokenizer.encode(user_prompt)
         token = torch.tensor(idx, dtype=torch.long, device=device)
 
         cur = 0

@@ -76,7 +76,7 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     utils.set_seed()
 
-    parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
+    parser = argparse.ArgumentParser(description='Pretrain My Custom GPT 🚀!!!')
 
     parser.add_argument("--train_mode", type=str, default="pretrain")
     parser.add_argument('--batch_size', type=int, default=80)

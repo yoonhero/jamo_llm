@@ -165,3 +165,8 @@ cython_debug/
 /checkpoint
 
 /runs
+
+.tensorboard.sh.swp
+
+/pretrain/hg_tokenizer
+/pretrain/runs
