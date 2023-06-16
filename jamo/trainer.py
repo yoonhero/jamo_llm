@@ -53,7 +53,6 @@ class Trainer():
         self.logger.addHandler(fileHandler)
         self.logger.setLevel(level=logging.INFO)
 
-    @utils.profile
     def train(self):
         self.scaler = torch.cuda.amp.GradScaler()
 
@@ -76,12 +75,13 @@ class Trainer():
 
                 loss = minibatch(x, y)
 
-            self.writer.add_scalar("Loss/train", loss.item(), iteration)
-            self.logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
-
             self.scaler.step(self.optimizer)
             self.scaler.update()
             self.optimizer.zero_grad(set_to_none=True)
+
+            self.writer.add_scalar("Loss/train", loss.item(), iteration)
+            self.writer.add_scaler("LR/train", lr, iteration)
+            self.logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
 
             if iteration % self.save_interval == 0:
                 utils.save_model(iteration, self.model, self.optimizer, self.checkpoint_dir)
@@ -104,7 +104,7 @@ class Trainer():
         token = self.tokenizer.encode("" if is_custom else "<s>", **kwargs)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
         eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
-        output = generate(self.model, token, max_new_tokens=100, temperature=0.8, top_k=4, eos_id=eos_id)
+        output = generate(self.model, token, max_new_tokens=100, temperature=0.8, top_k=20, eos_id=eos_id)
         self.model.reset_cache()
         result = self.tokenizer.decode(output)
 
