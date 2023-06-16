@@ -1,71 +1,56 @@
 import re
 import regex
+import tqdm
+from multiprocessing import Pool
+import argparse
+import os
 
-lines = []
+from text_preprocessing import TextPreprocessing
 
-with open("../tmp/10gb_corpus.txt", "r", buffering=1000000) as f:
-    for line in f:
-        text = line.strip()
-        lines.append(text)
+parser = argparse.ArgumentParser(description='Chunking the Dataset with Text-Processing')
+parser.add_argument("--path", type=str, default="../tmp/corpus.txt")
+parser.add_argument("--result_dir", type=str, default="../tmp/cleaned_512.txt")
+parser.add_argument("--clean", type=bool, action="store_true")
 
+args = parser.parse_args()
+
+def loading_corpus(path):
+    lines = []
+
+    with open(path, "r", buffering=1000000) as f:
+        for line in f:
+            text = line.strip()
+            lines.append(text)
+
+    return lines
+
+lines = loading_corpus(args.path)
 print(len(lines))
 
-punct_mapping = {"‘": "'", "₹": "e", "´": "'", "°": "", "€": "e", "™": "tm", "√": "sqrt", "×": "x", "²": "2",
-                 "—": "-", "–": "-", "’": "'", "_": "-", "`": "'", '“': '"', '”': '"', '“': '"', "£": "e",
-                 '∞': '무한', 'θ': '세타', '÷': '/', 'α': '알파', '•': '.', 'à': 'a', '−': '-', 'β': '베타',
-                 '∅': '', '³': '3', 'π': '파이', }
-def clean(text, mapping):
-    for p in mapping:
-        text = text.replace(p, mapping[p])
-
-    specials = {'\u200b': '', '…': '.', '\ufeff': '', 'करना': '', 'है': ''}
-    for s in specials:
-        text = text.replace(s, specials[s])
-
-    return text.strip()
-
-def clean_str(text):
-    text = clean(text, punct_mapping)
-    pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'  # E-mail제거
-    text = re.sub(pattern, '', text)
-    pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'  # URL제거
-    text = re.sub(pattern, '', text)
-    # 일본어 문자를 식별하는 정규식 패턴입니다.
-    japanese_pattern = r"[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]"
-    text = regex.sub(japanese_pattern, "", text)
-    text = re.sub(pattern=pattern, repl='', string=text)
-    text = re.sub('[-=+,#/\:^$.@*\"※~&%ㆍ』\\‘|\(\)\[\]\<\>`\'…》]', '', string=text)
-    text = re.sub('\n', '', string=text)
-    return text
-
-
-from multiprocessing import Pool
-
+cleaning = args.clean
+result_dir = args.result_dir
 
 def write_line(line):
-    line = clean_str(line)
-    cur = 0
+    if cleaning:
+        line = TextPreprocessing.preprocess(line)
 
+    cur = 0
     chunked = []
     if len(line) >= 512:
-        for i in range(len(line)//512):
-            chunked.append(line[i:512*i].strip())
+        for i in range(len(line) // 512):
+            chunked.append(line[i:512 * i].strip())
             cur = 512 * i
     if cur < len(line):
         chunked.append(line[cur:].strip())
 
-    with open("../tmp/cleaned_512.txt", "a") as f:   
+    with open(result_dir, "a") as f:
         f.write("\n".join(chunked))
 
-import tqdm
-#for i in tqdm.tqdm(lines):
- #   write_line(i)
 
-pool = Pool(5)
+pool = Pool(os.cpu_count() - 1)
 with tqdm.tqdm(total=len(lines)) as pbar:
-    for _ in tqdm.tqdm(pool.imap_unordered(write_line, lines)):
+    for _ in pool.imap_unordered(write_line, lines):
         pbar.update()
-    
-#pool.imap_unordered(write_line, lines)
+
 pool.close()
 pool.join()
