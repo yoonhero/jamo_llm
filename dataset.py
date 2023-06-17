@@ -1,4 +1,5 @@
 import json
+import os
 
 import torch
 from torch.utils.data import Dataset
@@ -12,6 +13,7 @@ import utils
 from transformers import AutoTokenizer, GPT2TokenizerFast
 from typing import Optional, Union
 import codecs
+from multiprocessing import Pool
 
 from jamo import Tokenizer
 
@@ -29,10 +31,17 @@ class IterablDataset(Dataset):
             start = time.time()
             with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
                 print("Loading Enormous Line by Line")
-                for line in tqdm.tqdm(f, total=num_lines):
-                    if len(line) < 100:
-                        continue
+
+                pool = Pool(os.cpu_count() - 1)
+
+                def add_line(line):
+                    if len(line) < 200:
+                        return
                     self.texts.append(line.strip())
+
+                with tqdm.tqdm(total=num_lines) as pbar:
+                    for _ in tqdm.tqdm(pool.imap_unordered(add_line, f)):
+                        pbar.update()
 
             print(f"Loading Done in {time.time() - start:.4f}s")
             self.num_subsets = len(self.texts)

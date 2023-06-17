@@ -147,13 +147,10 @@ if __name__ == "__main__":
         for idx in bash_generate(model, token, max_new_tokens=128, temperature=0.4, top_k=10, eos_id=tokenizer.encode("</s>")[0]):
             target = tokenizer.decode(idx)
 
-        print(idx)
-        print(target)
-
-            #for char in target[cur:]:
-        #        sys.stdout.write(char)
-         #       sys.stdout.flush()
-          #  cur = len(target)
+            for char in target[cur:]:
+               sys.stdout.write(char)
+               sys.stdout.flush()
+               cur = len(target)
 
         model.reset_cache()
         print("\n")

@@ -124,7 +124,7 @@ class EnormousBookCorpus(Preprocess):
         text = ""
         for paragraph in paragraphs:
             sentences = paragraph["sentences"]
-            text += " ".join([data["text"] if data["word_count"] >= 9 else "" for data in sentences])
+            text += " ".join([data["text"] if data["word_count"] >= 9 else "" for data in sentences]) + " "
 
         text = clean_text(text).strip()
         if len(text) < 200:
