@@ -15,14 +15,16 @@ class TextPreprocessing():
         for mark in replace_mark:
             text = text.replace(mark, replace_mark[mark])
 
+        return text
+
     @staticmethod
     def sub(text):
-        # 이메일 제거
-        email_pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'  # E-mail제거
+         # 이메일 제거
+        email_pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'  
         text = re.sub(email_pattern, "", text)
 
         # 링크 제거
-        link_pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'  # URL제거
+        link_pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
         text = re.sub(link_pattern, "", text)
 
         # 일본어 한자 제거

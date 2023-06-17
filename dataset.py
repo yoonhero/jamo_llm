@@ -11,6 +11,7 @@ import h5py
 import utils
 from transformers import AutoTokenizer, GPT2TokenizerFast
 from typing import Optional, Union
+import codecs
 
 from jamo import Tokenizer
 
@@ -24,11 +25,13 @@ class IterablDataset(Dataset):
         
         self.texts = []
         if not self.from_cache:
-            num_lines = sum(1 for _ in open(str(corpus), "r", buffering=100000))
+            num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8",  buffering=100000, errors="ignore"))
             start = time.time()
-            with open(corpus, "r", buffering=100000) as f:
+            with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
                 print("Loading Enormous Line by Line")
                 for line in tqdm.tqdm(f, total=num_lines):
+                    if len(line) < 100:
+                        continue
                     self.texts.append(line.strip())
 
             print(f"Loading Done in {time.time() - start:.4f}s")

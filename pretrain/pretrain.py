@@ -28,7 +28,7 @@ class PreTrainer(Trainer):
         Trainer.__init__(self, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
         self.pretrain = train_mode == "pretrain"
         self.max_iters = 300000
-        self.warmup_iters = 2000
+        self.warmup_iters = 4000
         self.lr_decay_iters = self.max_iters
         self.min_lr = 2e-5
 
@@ -39,8 +39,8 @@ class PreTrainer(Trainer):
             self.checkpoint_dir.mkdir(exist_ok=True)
             self.model: nn.Module = JAMO.from_name("small").to(torch.device("cuda"))
             self.model: nn.Module = torch.compile(self.model, mode="reduce-overhead")
-            optim_group = self.model.configure_optimizers(weight_decay=2e-1)
-            self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.03)
+            optim_group = self.model.configure_optimizers(weight_decay=1e-1)
+            self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.02)
 
         # self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
         self.tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
@@ -81,8 +81,8 @@ if __name__ == "__main__":
     parser.add_argument("--train_mode", type=str, default="pretrain")
     parser.add_argument('--batch_size', type=int, default=80)
     parser.add_argument("--save_interval", type=int, default=10000)
-    parser.add_argument("--eval_interval", type=int, default=1000)
-    parser.add_argument("--gradient_accumulate", type=int, default=4)
+    parser.add_argument("--eval_interval", type=int, default=5000)
+    parser.add_argument("--gradient_accumulate", type=int, default=6)
     parser.add_argument("--output_dir", type=str, default="../tmp/checkpoint")
     parser.add_argument("--corpus_path", type=str, default="../tmp/cleaned_512.txt")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
