@@ -18,32 +18,26 @@ from multiprocessing import Pool
 from jamo import Tokenizer
 
 class IterablDataset(Dataset):
+    @utils.profile
     def __init__(self, corpus: Path, tokenizer: Union[Tokenizer, AutoTokenizer], block_size: int, cache_dir=""):
         self.block_size = block_size
         self.tokenizer = tokenizer
 
         self.pool_size = 4
         self.from_cache = cache_dir != ""
-        
+        self.texts = []
         if not self.from_cache:
-            # num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8",  buffering=100000, errors="ignore"))
+            num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8", buffering=10000, errors="ignore"))
             start = time.time()
 
-            self.texts = self.load_corpus(corpus)
-            # with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
-            #     print("Loading Enormous Line by Line")
-            #
-            #     pool = Pool(os.cpu_count() - 1)
-            #
-            #     def add_line(line):
-            #         if len(line) < 200:
-            #             return
-            #         self.texts.append(line.strip())
-            #
-            #     with tqdm.tqdm(total=num_lines) as pbar:
-            #         for _ in tqdm.tqdm(pool.imap_unordered(add_line, f)):
-            #             pbar.update()
+            # self.texts = self.load_corpus(corpus)
+            with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
+                print("Loading Enormous Line by Line")
 
+                for line in tqdm.tqdm(f, total=num_lines):
+                    if len(line) < 200:
+                        return
+                    self.texts.append(line.strip())
 
             print(f"Loading Done in {time.time() - start:.4f}s")
             self.num_subsets = len(self.texts)
@@ -114,6 +108,7 @@ class IterablDataset(Dataset):
         token = self.tokenizer.encode(text, **kwargs)
         return token
 
+    @utils.profile
     def __getitem__(self, idx):
         token = None
         # start, end = idx * (self.block_size+1), (idx+1) * (self.block_size)
@@ -190,3 +185,10 @@ class PromptDataset(Dataset):
         y = torch.LongTensor(text[1:], device="cuda")
 
         return x, y
+
+
+if __name__ == "__main__":
+    tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
+    dataset = IterablDataset("../tmp/cleaned/512.txt", tokenizer, block_size=256)
+
+    print(dataset[0])

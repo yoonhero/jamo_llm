@@ -84,7 +84,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval_interval", type=int, default=5000)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
     parser.add_argument("--output_dir", type=str, default="../tmp/checkpoint")
-    parser.add_argument("--corpus_path", type=str, default="../tmp/cleaned_512.txt")
+    parser.add_argument("--corpus_path", type=str, default="../tmp/cleaned/512.txt")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument('--load_model', action='store_true')
     parser.add_argument("--with_lr_scheduler", action="store_true")
