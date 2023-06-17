@@ -105,7 +105,7 @@ class IterablDataset(Dataset):
     def _collate_fn(self, text):
 
         kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if self.tokenizer_is_custom else {
-            "max_length": 200, "truncation": True, "padding": "max_length", "return_tensors": "pt"}
+            "max_length": self.block_size+1, "truncation": True, "padding": "max_length", "return_tensors": "pt"}
 
         text = text if self.tokenizer_is_custom else f"<s> {text} </s>"
         token = self.tokenizer.encode(text, **kwargs)
@@ -125,7 +125,7 @@ class IterablDataset(Dataset):
             x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
             y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
         else:
-            token = token.to("cuda")
+            token = token[0].to("cuda")
             x = token[:-1].clone()
             y = token[1:].clone()
 
