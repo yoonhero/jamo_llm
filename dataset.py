@@ -193,19 +193,3 @@ class PromptDataset(Dataset):
         y = torch.LongTensor(text[1:], device="cuda")
 
         return x, y
-
-
-if __name__ == "__main__":
-    tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
-    dataset = IterablDataset("tmp/cleaned/512.txt", tokenizer, block_size=256)
-
-    print(dataset[0])
-    print(dataset[1])
-    from jamo import JAMO
-    model = JAMO.from_name("small").to(torch.device("cuda"))
-
-    @utils.profile
-    def forward(a):
-        model(a)
-
-    forward(dataset[1])
