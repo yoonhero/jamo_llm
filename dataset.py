@@ -19,7 +19,6 @@ import copy
 from jamo import Tokenizer
 
 class IterablDataset(Dataset):
-    @utils.profile
     def __init__(self, corpus: Path, tokenizer: Union[Tokenizer, AutoTokenizer], block_size: int, cache_dir=""):
         self.block_size = block_size
         self.tokenizer = tokenizer
@@ -111,7 +110,6 @@ class IterablDataset(Dataset):
         token = self.tokenizer.encode(text, **kwargs)
         return token
 
-    @utils.profile
     def __getitem__(self, idx):
         token = None
         # start, end = idx * (self.block_size+1), (idx+1) * (self.block_size)
