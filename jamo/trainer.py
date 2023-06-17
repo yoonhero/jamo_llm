@@ -80,7 +80,7 @@ class Trainer():
             self.optimizer.zero_grad(set_to_none=True)
 
             self.writer.add_scalar("Loss/train", loss.item(), iteration)
-            self.writer.add_scaler("LR/train", lr, iteration)
+            self.writer.add_scalar("LR/train", lr, iteration)
             self.logger.info(f"Iter {iteration}: Training Loss = {loss.item():.4f}")
 
             if iteration % self.save_interval == 0:

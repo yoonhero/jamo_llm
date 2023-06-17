@@ -79,10 +79,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pretrain My Custom GPT 🚀!!!')
 
     parser.add_argument("--train_mode", type=str, default="pretrain")
-    parser.add_argument('--batch_size', type=int, default=80)
+    parser.add_argument('--batch_size', type=int, default=70)
     parser.add_argument("--save_interval", type=int, default=5000)
     parser.add_argument("--eval_interval", type=int, default=500)
-    parser.add_argument("--gradient_accumulate", type=int, default=4)
+    parser.add_argument("--gradient_accumulate", type=int, default=6)
     parser.add_argument("--output_dir", type=str, default="../tmp/checkpoint")
     parser.add_argument("--corpus_path", type=str, default="../tmp/cleaned/512.txt")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
