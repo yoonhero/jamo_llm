@@ -27,6 +27,8 @@ class IterablDataset(Dataset):
         self.pool_size = 4
         self.from_cache = cache_dir != ""
         self.texts = []
+        self.tokenizer_is_custom = isinstance(self.tokenizer, Tokenizer)
+
         if not self.from_cache:
             # num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8", buffering=10000, errors="ignore"))
             start = time.time()
@@ -100,8 +102,6 @@ class IterablDataset(Dataset):
 
         self.from_cache = True
 
-        self.tokenizer_is_custom = isinstance(self.tokenizer, Tokenizer)
-
     def _collate_fn(self, text):
 
         kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if self.tokenizer_is_custom else {
@@ -126,8 +126,8 @@ class IterablDataset(Dataset):
             y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
         else:
             token = token.to("cuda")
-            x = copy.deepcopy(token[:-1])
-            y = copy.deepcopy(token[1:])
+            x = token[:-1].clone()
+            y = token[1:].clone()
 
         return x, y
 
