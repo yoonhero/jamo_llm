@@ -25,23 +25,25 @@ class IterablDataset(Dataset):
         self.pool_size = 4
         self.from_cache = cache_dir != ""
         
-        self.texts = []
         if not self.from_cache:
-            num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8",  buffering=100000, errors="ignore"))
+            # num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8",  buffering=100000, errors="ignore"))
             start = time.time()
-            with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
-                print("Loading Enormous Line by Line")
 
-                pool = Pool(os.cpu_count() - 1)
+            self.texts = self.load_corpus(corpus)
+            # with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
+            #     print("Loading Enormous Line by Line")
+            #
+            #     pool = Pool(os.cpu_count() - 1)
+            #
+            #     def add_line(line):
+            #         if len(line) < 200:
+            #             return
+            #         self.texts.append(line.strip())
+            #
+            #     with tqdm.tqdm(total=num_lines) as pbar:
+            #         for _ in tqdm.tqdm(pool.imap_unordered(add_line, f)):
+            #             pbar.update()
 
-                def add_line(line):
-                    if len(line) < 200:
-                        return
-                    self.texts.append(line.strip())
-
-                with tqdm.tqdm(total=num_lines) as pbar:
-                    for _ in tqdm.tqdm(pool.imap_unordered(add_line, f)):
-                        pbar.update()
 
             print(f"Loading Done in {time.time() - start:.4f}s")
             self.num_subsets = len(self.texts)
@@ -50,6 +52,47 @@ class IterablDataset(Dataset):
             self.tokens = h5f["tokens"][:]
             h5f.close()
             self.num_subsets = self.tokens.shape[0]
+
+
+    def process_chunk(self, chunk):
+        # Process each chunk of lines using multiprocessing
+        processed_chunk = []
+        for line in chunk:
+            if len(line) < 400:
+                continue
+            processed_chunk.append(line)
+        return processed_chunk
+
+    def load_corpus(self, file_path, chunk_size=10000):
+        pool = Pool(os.cpu_count() - 1)
+        file_size = os.path.getsize(file_path)
+        num_chunks = file_size // chunk_size
+
+        with codecs.open(file_path, "r", encoding="utf-8", buffering=100000, errors="ignore") as file:
+            chunks = []
+
+            print("Read the chunk by chunk")
+            lines = file.readlines(chunk_size)
+            while lines:
+                chunks.append(lines)
+                lines = file.readlines(chunk_size)
+
+            results = []
+            with tqdm.tqdm(total=num_chunks) as pbar:
+                for chunk in chunks:
+                    result = pool.apply_async(self.process_chunk, args=(chunk,))
+                    results.append(result)
+                    pbar.update(1)
+
+        pool.close()
+        pool.join()
+
+        # Get the processed chunks from the results
+        processed_chunks = [result.get() for result in results]
+
+        # Flatten the processed chunks into a single list
+        processed_corpus = [line for chunk in processed_chunks for line in chunk]
+        return processed_corpus
 
     @utils.profile
     def save_cache(self, save_dir):
