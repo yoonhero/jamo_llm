@@ -14,6 +14,7 @@ from transformers import AutoTokenizer, GPT2TokenizerFast
 from typing import Optional, Union
 import codecs
 from multiprocessing import Pool
+import copy
 
 from jamo import Tokenizer
 
@@ -27,14 +28,14 @@ class IterablDataset(Dataset):
         self.from_cache = cache_dir != ""
         self.texts = []
         if not self.from_cache:
-            num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8", buffering=10000, errors="ignore"))
+            # num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8", buffering=10000, errors="ignore"))
             start = time.time()
 
             # self.texts = self.load_corpus(corpus)
             with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
                 print("Loading Enormous Line by Line")
 
-                for line in tqdm.tqdm(f, total=num_lines):
+                for line in tqdm.tqdm(f, total=7653985):
                     if len(line) < 200:
                         return
                     self.texts.append(line.strip())
@@ -99,12 +100,14 @@ class IterablDataset(Dataset):
 
         self.from_cache = True
 
-    def _collate_fn(self, text):
-        is_custom = isinstance(self.tokenizer, Tokenizer)
-        kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if is_custom else {
-            "max_length": 200, "truncation": True, "padding": "max_length"}
+        self.tokenizer_is_custom = isinstance(self.tokenizer, Tokenizer)
 
-        text = text if is_custom else f"<s> {text} </s>"
+    def _collate_fn(self, text):
+
+        kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if self.tokenizer_is_custom else {
+            "max_length": 200, "truncation": True, "padding": "max_length", "return_tensors": "pt"}
+
+        text = text if self.tokenizer_is_custom else f"<s> {text} </s>"
         token = self.tokenizer.encode(text, **kwargs)
         return token
 
@@ -118,8 +121,13 @@ class IterablDataset(Dataset):
         else:
             token = self.tokens[idx]
 
-        x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
-        y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
+        if self.tokenizer_is_custom:
+            x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
+            y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
+        else:
+            token = token.to("cuda")
+            x = copy.deepcopy(token[:-1])
+            y = copy.deepcopy(token[1:])
 
         return x, y
 
@@ -189,6 +197,15 @@ class PromptDataset(Dataset):
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
-    dataset = IterablDataset("../tmp/cleaned/512.txt", tokenizer, block_size=256)
+    dataset = IterablDataset("tmp/cleaned/512.txt", tokenizer, block_size=256)
 
     print(dataset[0])
+    print(dataset[1])
+    from jamo import JAMO
+    model = JAMO.from_name("small").to(torch.device("cuda"))
+
+    @utils.profile
+    def forward(a):
+        model(a)
+
+    forward(dataset[1])
