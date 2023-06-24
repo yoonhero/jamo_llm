@@ -21,10 +21,10 @@ class Trainer():
     train_loader: Optional[DataLoader] = None
     tokenizer: Optional[Union[GPT2TokenizerFast, Tokenizer]] = None
 
-    def __init__(self, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
+    def __init__(self, learning_rate: float, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
                  save_interval: int, eval_interval: int, gradient_accumulate: int
                  ):
-        self.learning_rate = 3e-4
+        self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.max_iters = 2000
 
@@ -34,9 +34,6 @@ class Trainer():
         self.gradient_accumulate = gradient_accumulate
         self.save_interval = save_interval
         self.eval_interval = eval_interval
-
-        self.init_logger()
-        utils.tokenizer_setting()
 
     def create_dataloader(self, tokenizer, block_size):
         return NotImplementedError
