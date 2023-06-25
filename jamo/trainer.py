@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from typing import Optional, Union
 from transformers import GPT2TokenizerFast
+import gc
 
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -87,9 +88,10 @@ class Trainer():
                 utils.save_model(iteration, self.model, self.optimizer, self.checkpoint_dir)
 
             if iteration % self.eval_interval == 0:
-                self.model.eval()
-                result = self.sampling()
-                self.writer.add_text("jamo", result, iteration)
+                # memory issue...
+                #self.model.eval()
+                #result = self.sampling()
+                #self.writer.add_text("jamo", result, iteration)
                 self.model.train()
 
                 # Log model weight histograms

@@ -135,7 +135,7 @@ if __name__ == "__main__":
     print("⭐️ Loading LLM Done! ⭐️")
 
     while True:
-        user_prompt = input(">>> ")
+        user_prompt = "<s> " + input(">>> ")
 
         if user_prompt == "q":
             break
@@ -144,7 +144,7 @@ if __name__ == "__main__":
         token = torch.tensor(idx, dtype=torch.long, device=device)
 
         cur = 0
-        for idx in bash_generate(model, token, max_new_tokens=128, temperature=0.4, top_k=10, eos_id=tokenizer.encode("</s>")[0]):
+        for idx in bash_generate(model, token, max_new_tokens=128, temperature=0.8, top_k=40, eos_id=tokenizer.encode("</s>")[0]):
             target = tokenizer.decode(idx)
 
             for char in target[cur:]:
