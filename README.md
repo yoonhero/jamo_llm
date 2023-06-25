@@ -1,5 +1,9 @@
 # JAMO (자모): Korean LLM (Little Language Model) 
 
+<img src="./assets/parrot.png" style="max-width:400px;align-items: center;">
+
+*"It's just a simple stochastic parrots"* -- by Dall-E 2
+
 JAMO(자모)는 세마고등학교 R&E 연구를 하고 있는 학생이 개발한 한국어 Large Language Model 입니다.
 
 자모 프로젝트는 기본의 GPT-3나 GPT-4와 같은 대규모 언어 모델의 크기를 **더** 줄이기 위한 프로젝트의 일환으로 엣지 디바이스에서도 풀모델 구동이 가능하도록 연구를 진행하고 있습니다. 
