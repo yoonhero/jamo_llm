@@ -34,6 +34,7 @@ class Trainer():
         self.gradient_accumulate = gradient_accumulate
         self.save_interval = save_interval
         self.eval_interval = eval_interval
+        self.with_lr_scheduler = False
 
     def create_dataloader(self, tokenizer, block_size):
         return NotImplementedError
@@ -55,9 +56,10 @@ class Trainer():
 
         pbar = tqdm.tqdm(range(1, self.max_iters + 1))
         for iteration in pbar:
-            lr = self.get_lr(iteration)
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = lr
+            if self.with_lr_scheduler:
+                lr = self.get_lr(iteration)
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] = lr
 
             for _ in range(self.gradient_accumulate):
                 x, y = next(iter(self.train_loader))
