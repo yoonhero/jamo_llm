@@ -26,7 +26,7 @@ class FullTrainer(Trainer):
 
         # self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
         self.tokenizer = None
-        self.train_loader, self.eval_loader = self.create_dataloader(tokenizer=self.tokenizer, block_size=self.model.config.block_size)
+        self.train_loader, self.eval_loader = self.create_dataloader()
 
         self.max_iters = max_iters
         self.warmup_iters = warmup_iters
