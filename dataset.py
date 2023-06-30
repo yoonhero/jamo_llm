@@ -186,7 +186,7 @@ class PromptDataset(Dataset):
             self.num_subsets = len(self.input_ids)
         else:
             h5f = h5py.File(cache_dir, "r")
-            self.input_ids = h5f[f"/{mode}"][:]
+            self.input_ids = h5f[f"/{mode}"][:].tolist()
             h5f.close()
             self.num_subsets = self.input_ids.shape[0]
 
@@ -195,7 +195,7 @@ class PromptDataset(Dataset):
 
     def __getitem__(self, idx:int):
         text = self.input_ids[idx]
-        x = torch.from_numpy(text[:-1], dtype=torch.long, device="cuda")
-        y = torch.from_numpy(text[1:], dtype=torch.long, device="cuda")
+        x = torch.tensor(text[:-1], dtype=torch.long, device="cuda")
+        y = torch.tensor(text[1:], dtype=torch.long, device="cuda")
 
         return x, y
