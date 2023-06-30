@@ -1,9 +1,6 @@
 from torch.utils.data import DataLoader
 from pathlib import Path
 import torch
-from jamo import Tokenizer
-import utils
-from jamo.trainer import Trainer
 import sys
 import argparse
 
@@ -12,6 +9,9 @@ sys.path.append(str(wd))
 
 from dataset import PromptDataset
 from sophia import SophiaG
+from jamo import Tokenizer
+import utils
+from jamo.trainer import Trainer
 
 
 class FullTrainer(Trainer):
