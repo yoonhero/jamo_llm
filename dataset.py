@@ -195,7 +195,7 @@ class PromptDataset(Dataset):
 
     def __getitem__(self, idx:int):
         text = self.input_ids[idx]
-        x = torch.LongTensor(text[:-1], dtype=torch.long, device="cuda")
-        y = torch.LongTensor(text[1:], dtype=torch.long, device="cuda")
+        x = torch.from_numpy(text[:-1], dtype=torch.long, device="cuda")
+        y = torch.from_numpy(text[1:], dtype=torch.long, device="cuda")
 
         return x, y
