@@ -188,7 +188,7 @@ class PromptDataset(Dataset):
             h5f = h5py.File(cache_dir, "r")
             self.input_ids = h5f[f"/{mode}"][:]
             h5f.close()
-            self.num_subsets = self.tokens.shape[0]
+            self.num_subsets = self.input_ids.shape[0]
 
     def __len__(self):
         return self.num_subsets
