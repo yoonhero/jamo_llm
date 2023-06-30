@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import random_split
 import argparse
 from torch.utils.data import DataLoader
 import math
@@ -47,7 +48,7 @@ class PreTrainer(Trainer):
         else:
             self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
 
-        self.train_loader: DataLoader = self.create_dataloader(tokenizer=self.tokenizer,
+        self.train_loader, self.eval_loader = self.create_dataloader(tokenizer=self.tokenizer,
                                                                block_size=self.model.config.block_size)
 
     def create_dataloader(self, tokenizer, block_size, seed:int=1231928):
@@ -56,10 +57,27 @@ class PreTrainer(Trainer):
 
         t0 = time.time()
         dataset = IterablDataset(self.corpus_path, tokenizer, block_size)
-        train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
+        eval_size = 800
+        train_size = len(dataset) - eval_size
+        train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
+        eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, generator=g)
+
         self.logger.info(f"Finishing Loading the DataLoader!!! in {time.time() - t0}")
 
-        return train_loader
+        return train_loader, eval_loader
+    
+    @torch.no_grad()
+    def eval(self, iteration):
+        losses = []
+        for (x, y) in self.eval_loader:
+            logits = self.model(x)
+            loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
+            losses.append(loss.item())
+
+        min_loss = sum(losses) / len(losses)
+        self.writer.add_scalar("Loss/eval", min_loss, iteration)
+        self.logger.info(f"Iter {iteration}: Eval Loss = {min_loss}")
 
     def get_lr(self, it):
         # 1) linear warmup for warmup_iters steps
@@ -101,6 +119,7 @@ if __name__ == "__main__":
     trainer = PreTrainer(
         model_size=args.model_size,
         learning_rate=args.learning_rate,
+        min_lr=args.min_lr,
         batch_size=args.batch_size,
         corpus_path=args.corpus_path,
         checkpoint_dir=args.checkpoint_dir,
