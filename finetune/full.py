@@ -26,7 +26,7 @@ class FullTrainer(Trainer):
 
         # self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
         self.tokenizer = None
-        self.train_loader: DataLoader = self.create_dataloader(tokenizer=self.tokenizer, block_size=self.model.config.block_size)
+        self.train_loader, self.eval_loader = self.create_dataloader(tokenizer=self.tokenizer, block_size=self.model.config.block_size)
 
         self.max_iters = max_iters
         self.warmup_iters = warmup_iters
@@ -36,18 +36,17 @@ class FullTrainer(Trainer):
         lr = self.learning_rate * iteration / self.warmup_iters if self.warmup_iters > iteration else self.learning_rate
         return lr
 
-    def create_dataloader(self, tokenizer, block_size: int):
+    def create_dataloader(self):
         g = torch.Generator()
         g.manual_seed(1231928)
-        # dataset = PromptDataset(str(self.corpus_path), tokenizer, block_size)
-        cache_dir = str(Path("../tmp/cache/sft-cache.hdf5").resolve())
+        cache_dir = str(Path("sft-cache.hdf5").resolve())
         train_dataset = PromptDataset(cache_dir=cache_dir)
         eval_dataset = PromptDataset(cache_dir=cache_dir, mode="eval")
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
         self.logger.info("Finishing Loading the DataLoader")
 
-        return train_loader
+        return train_loader, eval_loader
     
     @torch.no_grad()
     def eval(self, iteration):
