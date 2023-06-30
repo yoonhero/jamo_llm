@@ -1,6 +1,6 @@
 # JAMO (자모): Korean LLM (Little Language Model) 
 
-<img src="./assets/parrot.png" style="max-width:400px;align-items: center;">
+<img src="./assets/parrot.png" style="max-width:200px;">
 
 *"It's just a simple stochastic parrots"* -- by Dall-E 2
 

@@ -5,10 +5,10 @@ def train_tokenizer():
     tokenizer = ByteLevelBPETokenizer(unicode_normalizer="nfkc", trim_offsets=True)
 
     # your text corpus data
-    paths = [""]
-    vocab_size = 8_000
+    paths = ["../tmp/cleaned/corpus.txt"]
+    vocab_size = 32_000
 
-    tokenizer.train(files=paths, vocab_size=vocab_size, min_frequency=2, special_tokens=[
+    tokenizer.train(files=paths, vocab_size=vocab_size, min_frequency=4, special_tokens=[
         "<s>",
         "<pad>",
         "</s>",
@@ -20,8 +20,8 @@ def train_tokenizer():
 
 def proceess_tokenizer_file():
     transformers_gpt2_tokenizer = GPT2Tokenizer(
-        vocab_file = 'jamo-vocab.json',
-        merges_file = 'jamo-merges.txt',
+        vocab_file = './tokenizer/jamo-vocab.json',
+        merges_file = './tokenizer/jamo-merges.txt',
         unk_token="<unk>",
         bos_token="<s>",
         eos_token="</s>",
@@ -36,3 +36,5 @@ if __name__ == "__main__":
     proceess_tokenizer_file()
 
     tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
+    idxs = tokenizer.encode("안녕하세요")
+    print(idxs)

@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from typing import Optional, Union
 from transformers import GPT2TokenizerFast
+import gc
 
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -54,7 +55,7 @@ class Trainer():
     def train(self):
         self.scaler = torch.cuda.amp.GradScaler()
 
-        pbar = tqdm.tqdm(range(1, self.max_iters + 1))
+        pbar = tqdm.tqdm(range(0, self.max_iters + 1))
         for iteration in pbar:
             if self.with_lr_scheduler:
                 lr = self.get_lr(iteration)
@@ -86,6 +87,8 @@ class Trainer():
                 utils.save_model(iteration, self.model, self.optimizer, self.checkpoint_dir)
 
             if iteration % self.eval_interval == 0:
+                # memory issue...
+                torch.cuda.empty_cache()
                 self.model.eval()
                 result = self.sampling()
                 self.writer.add_text("jamo", result, iteration)
@@ -103,6 +106,7 @@ class Trainer():
         token = self.tokenizer.encode("" if is_custom else "<s>", **kwargs)
         token = torch.tensor(token, dtype=torch.long, device="cuda")
         eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
+        self.model.reset_cache()
         output = generate(self.model, token, max_new_tokens=100, temperature=0.8, top_k=20, eos_id=eos_id)
         self.model.reset_cache()
         result = self.tokenizer.decode(output)

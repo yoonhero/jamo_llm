@@ -39,9 +39,9 @@ class PreTrainer(Trainer):
             self.model: nn.Module = JAMO.from_name(model_size).to(torch.device("cuda"))
             self.model: nn.Module = torch.compile(self.model, mode="reduce-overhead")
             optim_group = self.model.configure_optimizers(weight_decay=1e-1)
-            self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.02)
+            self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
 
-        if self.model.config.vocab_size == 8000:
+        if self.model.config.vocab_size == 8000 or self.model.config.vocab_size == 32000:
             utils.tokenizer_setting()
             self.tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
         else:
@@ -83,6 +83,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
+<<<<<<< HEAD
     parser.add_argument("--model_size", type=str, default="tiny")
     parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--min_lr", type=float, default=1e-4)
