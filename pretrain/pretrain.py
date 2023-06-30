@@ -37,7 +37,7 @@ class PreTrainer(Trainer):
                                                                      best=True, pretrain=self.pretrain)
         else:
             self.checkpoint_dir.mkdir(exist_ok=True)
-            self.model: nn.Module = JAMO.from_name(model_size).to(torch.device("cuda"))
+            self.model: nn.Module = JAMO.from_name(model_size, pretrain=self.pretrain).to(torch.device("cuda"))
             self.model: nn.Module = torch.compile(self.model, mode="reduce-overhead")
             optim_group = self.model.configure_optimizers(weight_decay=1e-1)
             self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
@@ -66,18 +66,6 @@ class PreTrainer(Trainer):
         self.logger.info(f"Finishing Loading the DataLoader!!! in {time.time() - t0}")
 
         return train_loader, eval_loader
-    
-    @torch.no_grad()
-    def eval(self, iteration):
-        losses = []
-        for (x, y) in self.eval_loader:
-            logits = self.model(x)
-            loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
-            losses.append(loss.item())
-
-        min_loss = sum(losses) / len(losses)
-        self.writer.add_scalar("Loss/eval", min_loss, iteration)
-        self.logger.info(f"Iter {iteration}: Eval Loss = {min_loss}")
 
     def get_lr(self, it):
         # 1) linear warmup for warmup_iters steps
@@ -100,8 +88,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
     parser.add_argument("--model_size", type=str, default="tiny")
-    parser.add_argument("--learning_rate", type=float, default=1e-3)
-    parser.add_argument("--min_lr", type=float, default=1e-4)
+    parser.add_argument("--learning_rate", type=float, default=5e-4)
+    parser.add_argument("--min_lr", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=80)
     parser.add_argument("--max_iters", type=int, default=50000)
     parser.add_argument("--warmup_iters", type=int, default=750)

@@ -93,16 +93,22 @@ class Trainer():
 
         self.writer.close()
 
+    @torch.no_grad()
     def eval(self, iteration):
-        # Log model weight histograms
+        losses = []
+        for (x, y) in self.eval_loader:
+            logits = self.model(x)
+            loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
+            losses.append(loss.item())
+
+        min_loss = sum(losses) / len(losses)
+        self.writer.add_scalar("Loss/eval", min_loss, iteration)
+        self.logger.info(f"Iter {iteration}: Eval Loss = {min_loss}")
+
+        # self.writer.add_text("jamo", result, iteration)
+
         for name, param in self.model.named_parameters():
             self.writer.add_histogram(name, param, iteration)
-
-        torch.cuda.empty_cache()
-        self.model.eval()
-        result = self.sampling()
-        self.writer.add_text("jamo", result, iteration)
-        self.model.train()
 
     def sampling(self):
         is_custom = isinstance(self.tokenizer, Tokenizer)

@@ -56,7 +56,6 @@ class JAMO(nn.Module):
 
             print(f"Number of parameters: {human_format(self.get_num_params())}")
 
-
     def get_num_params(self):
         n_params = [p.nelement() for p in self.parameters()]
         num = sum(n_params)
@@ -69,7 +68,6 @@ class JAMO(nn.Module):
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-
 
     def forward(self, idx,  max_seq_length=None, input_pos=None):
         B, T = idx.shape
@@ -95,8 +93,6 @@ class JAMO(nn.Module):
             mask = self.mask_cache[:, :, :T, :T]
 
         x = self.transformer.drop(self.transformer.wte(idx))
-        # pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0)
-        # pos_emb = self.wpe(pos)
 
         if input_pos is None:  # proxy for use_cache=False
             for block in self.transformer.h:
@@ -122,7 +118,7 @@ class JAMO(nn.Module):
     def from_name(cls, name: str, pretrain:bool=False) -> Self:
         config = JamoConfig.from_name(name)
         config.dropout = 0.0 if pretrain else 0.1
-        return cls(config, pretrain)
+        return cls(config, pretrain=pretrain)
     
     @classmethod
     def from_pretrained(cls, name: str, path: str, device:torch.device=torch.device("cuda")) -> Self:
