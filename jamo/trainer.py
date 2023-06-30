@@ -31,6 +31,7 @@ class Trainer():
 
         self.corpus_path: Path = Path(corpus_path)
         self.checkpoint_dir: Path = Path(checkpoint_dir)
+        self.checkpoint_dir.mkdir(exist_ok=True)
         self.tokenizer_path: Path = Path(tokenizer_path)
         self.gradient_accumulate = gradient_accumulate
         self.save_interval = save_interval
