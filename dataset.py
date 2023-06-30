@@ -183,14 +183,15 @@ class PromptDataset(Dataset):
             data = [source + target for source, target in zip(sources, targets)]
             _preprocess = _preprocess_spm if isinstance(tokenizer, Tokenizer) else _preprocess_hg
             self.input_ids = _preprocess(data, tokenizer, block_size)
+            self.num_subsets = len(self.input_ids)
         else:
             h5f = h5py.File(cache_dir, "r")
-            self.tokens = h5f[f"/{mode}"][:]
+            self.input_ids = h5f[f"/{mode}"][:]
             h5f.close()
             self.num_subsets = self.tokens.shape[0]
 
     def __len__(self):
-        return len(self.input_ids)
+        return self.num_subsets
 
     def __getitem__(self, idx:int):
         text = self.input_ids[idx]
