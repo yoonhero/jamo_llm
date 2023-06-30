@@ -24,7 +24,8 @@ class FullTrainer(Trainer):
         self.model = utils.load_model(model_path, model_size=model_size, device="cuda")
         self.optimizer = SophiaG(self.model.parameters(), lr=learning_rate, betas=(0.965, 0.99), rho=0.03, weight_decay=0.2)
 
-        self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
+        # self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
+        self.tokenizer = None
         self.train_loader: DataLoader = self.create_dataloader(tokenizer=self.tokenizer, block_size=self.model.config.block_size)
 
         self.max_iters = max_iters
