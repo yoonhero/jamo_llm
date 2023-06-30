@@ -69,12 +69,8 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = Path(args.model_path)
-    if not os.path.isfile(str(model_path)):
-        model_path = f"{str(model_path.absolute())}/*"
-        model_dirs = glob.glob(model_path)
-        assert len(model_dirs) != 0, "There're no checkpoints in that directory."
-        model_path = sorted(model_dirs, key=utils.get_epoch, reverse=True)[0]
-    model = JAMO.from_pretrained(args.model_size, str(model_path), device=device)
+    model = utils.load_model(model_path, model_size="small", device=device)
+    model.eval()
 
     # Loading the tokenizer.
     if model.config.vocab_size == 20000:

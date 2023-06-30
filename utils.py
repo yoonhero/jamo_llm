@@ -69,28 +69,14 @@ def prepare_for_resuming(path: Path, model_size:str, learning_rate:float, best=T
 
     return model, optimizer, start_epoch
 
-def load_model(path: Path, model_size:str, best=True):
-    model = JAMO.from_name(model_size, pretrain=True)
+def load_model(model_path: Path, model_size:str, device):
+    if not os.path.isfile(str(model_path)):
+        model_path = f"{str(model_path.absolute())}/*"
+        model_dirs = glob.glob(model_path)
+        assert len(model_dirs) != 0, "There're no checkpoints in that directory."
+        model_path = sorted(model_dirs, key=get_epoch, reverse=True)[0]
 
-    if best:
-        model_dirs = glob.glob(f"{str(path)}/*")
-        best_model_dir = sorted(model_dirs, key=get_epoch)[0]
-        model_state_dict = torch.load(best_model_dir)
-    else:
-        assert path.exists(), "Please Check the model is existed."
-        model_state_dict = torch.load(str(path))
-
-    state_dict = model_state_dict["model"]
-    unwanted_prefix = '_orig_mod.'
-    for k,v in list(state_dict.items()):
-        if k.startswith(unwanted_prefix):
-            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
-
-    if isinstance(model, nn.DataParallel):
-        model.module.load_state_dict(state_dict)
-    else:
-        model.load_state_dict(state_dict)
-    model.eval()
+    model = JAMO.from_pretrained(model_size, model_path, device=device)
     return model
 
 def is_torch_2():

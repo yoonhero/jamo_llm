@@ -11,6 +11,7 @@ wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
 from dataset import PromptDataset
+from sophia import SophiaG
 
 
 class FullTrainer(Trainer):
@@ -18,9 +19,10 @@ class FullTrainer(Trainer):
                  max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool):
         Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
 
-        self.model, self.optimizer, _ = utils.prepare_for_resuming("./tmp/checkpoint", learning_rate=self.learning_rate,
-                                                                       model_size=model_size, best=True,
-                                                                       pretrain=False)
+
+        model_path = Path("./tmp/checkpoint")
+        self.model = utils.load_model(model_path, model_size=model_size, device="cuda")
+        self.optimizer = SophiaG(self.model.parameters(), lr=learning_rate, betas=(0.965, 0.99), rho=0.03, weight_decay=0.2)
 
         self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
         self.train_loader: DataLoader = self.create_dataloader(tokenizer=self.tokenizer, block_size=self.model.config.block_size)
