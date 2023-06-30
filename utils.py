@@ -63,7 +63,8 @@ def prepare_for_resuming(path: Path, model_size:str, learning_rate:float, best=T
     else:
         model.load_state_dict(state_dict)
 
-    optimizer.load_state_dict(model_state_dict["optimizer"])
+    if pretrain:
+        optimizer.load_state_dict(model_state_dict["optimizer"])
     start_epoch = model_state_dict["epoch"]
 
     return model, optimizer, start_epoch

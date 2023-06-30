@@ -166,7 +166,7 @@ def _preprocess_spm(strings, tokenizer: Tokenizer, block_size):
 
 
 class PromptDataset(Dataset):
-    def __init__(self, data_path: Union[str]="", tokenizer: Union[Tokenizer, GPT2TokenizerFast]=None, block_size:Union[int]=None, cache_dir:str=""):
+    def __init__(self, data_path: Optional[str]="", tokenizer: Union[Tokenizer, GPT2TokenizerFast]=None, block_size: Optional[int]=None, cache_dir:str=""):
         super().__init__()
 
         if cache_dir == "":
