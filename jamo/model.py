@@ -21,7 +21,7 @@ class JamoConfig:
 
 
 jamo_configs = {
-    "tiny": dict(n_layer=1  , n_heads=16, n_embd=1024, vocab_size=8000),
+    "tiny": dict(n_layer=1, n_heads=16, n_embd=1024, vocab_size=8000),
     "supersmall": dict(n_layer=12, n_heads=12, n_embd=768),
     "small": dict(n_layer=15, n_heads=16, n_embd=1024, vocab_size=8000),
     "medium": dict(n_layer=16, n_heads=12, n_embd=768, vocab_size=32000),

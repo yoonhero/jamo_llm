@@ -83,7 +83,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
-<<<<<<< HEAD
     parser.add_argument("--model_size", type=str, default="tiny")
     parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--min_lr", type=float, default=1e-4)

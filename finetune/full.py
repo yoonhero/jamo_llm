@@ -13,12 +13,12 @@ sys.path.append(str(wd))
 from dataset import PromptDataset
 
 
-class LoRATrainer(Trainer):
+class FullTrainer(Trainer):
     def __init__(self, model_size:str, learning_rate: float, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
-                 max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool, r:int=2, alpha:int=1, dropout:0.1=float):
+                 max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool):
         Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
 
-        self.model, self.optimizer, _ = utils.prepare_for_resuming("../tmp/", self.learning_rate,
+        self.model, self.optimizer, _ = utils.prepare_for_resuming("../tmp/checkpoint", self.learning_rate,
                                                                        model_size=model_size, best=True,
                                                                        pretrain=False)
 
@@ -30,7 +30,7 @@ class LoRATrainer(Trainer):
         self.with_lr_scheduler = with_lr_scheduler
 
     def get_lr(self, iteration: int):
-        lr = self.learning_rate * iteration / self.warmup_iters
+        lr = self.learning_rate * iteration / self.warmup_iters if self.warmup_iters > iteration else self.learning_rate
         return lr
 
     def create_dataloader(self, tokenizer, block_size: int):
@@ -50,21 +50,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
     parser.add_argument("--model_size", type=str, default="small")
-    parser.add_argument("--learning_rate", type=float, default=3e-4)
+    parser.add_argument("--learning_rate", type=float, default=5e-4)
     parser.add_argument("--batch_size", type=int, default=60)
-    parser.add_argument("--max_iters", type=int, default=100000)
-    parser.add_argument("--warmup_iters", type=int, default=2000)
-    parser.add_argument("--save_interval", type=int, default=5000)
-    parser.add_argument("--eval_interval", type=int, default=500)
+    parser.add_argument("--max_iters", type=int, default=200)
+    parser.add_argument("--warmup_iters", type=int, default=40)
+    parser.add_argument("--save_interval", type=int, default=50)
+    parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
-    parser.add_argument("--checkpoint_dir", type=str, default="../tmp/checkpoint")
+    parser.add_argument("--checkpoint_dir", type=str, default="../tmp/finetuned")
     parser.add_argument("--corpus_path", type=str, default="../tmp/ko_alpaca_data.json")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument("--with_lr_scheduler", action="store_true")
 
     args = parser.parse_args()
 
-    trainer = LoRATrainer(
+    trainer = FullTrainer(
         model_size=args.model_size,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
