@@ -39,7 +39,7 @@ class FullTrainer(Trainer):
     def create_dataloader(self):
         g = torch.Generator()
         g.manual_seed(1231928)
-        cache_dir = "sft-cache.hdf5"
+        cache_dir = "../tmp/cache/sft-cache.hdf5"
         train_dataset = PromptDataset(cache_dir=cache_dir)
         eval_dataset = PromptDataset(cache_dir=cache_dir, mode="eval")
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
