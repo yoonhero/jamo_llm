@@ -87,18 +87,21 @@ class Trainer():
                 utils.save_model(iteration, self.model, self.optimizer, self.checkpoint_dir)
 
             if iteration % self.eval_interval == 0:
-                # memory issue...
-                torch.cuda.empty_cache()
-                self.model.eval()
-                result = self.sampling()
-                self.writer.add_text("jamo", result, iteration)
-                self.model.train()
-
-                # Log model weight histograms
-                for name, param in self.model.named_parameters():
-                    self.writer.add_histogram(name, param, iteration)
+                self.eval(iteration)
 
         self.writer.close()
+
+    def eval(self, iteration):
+        # Log model weight histograms
+        for name, param in self.model.named_parameters():
+            self.writer.add_histogram(name, param, iteration)
+
+        torch.cuda.empty_cache()
+        self.model.eval()
+        result = self.sampling()
+        self.writer.add_text("jamo", result, iteration)
+        self.model.train()
+
 
     def sampling(self):
         is_custom = isinstance(self.tokenizer, Tokenizer)

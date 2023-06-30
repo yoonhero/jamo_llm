@@ -37,11 +37,25 @@ class FullTrainer(Trainer):
         g = torch.Generator()
         g.manual_seed(1231928)
         # dataset = PromptDataset(str(self.corpus_path), tokenizer, block_size)
-        dataset = PromptDataset(cache_dir="./tmp/cache/sft-cache.hdf5")
-        train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
+        train_dataset = PromptDataset(cache_dir="./tmp/cache/sft-cache.hdf5")
+        eval_dataset = PromptDataset(cache_dir="./tmp/cache/stf-cache.hdf5", mode="eval")
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
+        eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
         self.logger.info("Finishing Loading the DataLoader")
 
         return train_loader
+    
+    @torch.no_grad()
+    def eval(self, iteration):
+        losses = []
+        for _, (x, y) in enumerate(self.eval_loader):
+            logits = self.model(x)
+            loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
+            losses.append(loss.item())
+
+        min_loss = sum(losses) / len(losses)
+        self.writer.add_scalar("Loss/eval", min_loss, iteration)
+        self.logger.info(f"Iter {iteration}: Eval Loss = {min_loss}")
 
 
 if __name__ == "__main__":
