@@ -119,7 +119,7 @@ class JAMO(nn.Module):
         return logits
 
     @classmethod
-    def from_name(cls, name: str, pretrain:bool=True) -> Self:
+    def from_name(cls, name: str, pretrain:bool=False) -> Self:
         config = JamoConfig.from_name(name)
         config.dropout = 0.0 if pretrain else 0.1
         return cls(config, pretrain)
@@ -227,9 +227,7 @@ class CasualAttention(nn.Module):
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_drop = nn.Dropout(config.dropout)
 
-        if not is_torch_2():
-            self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
-                                 .view(1, 1, config.block_size, config.block_size))
+
 
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
         B, T, C = x.size()
@@ -259,13 +257,12 @@ class CasualAttention(nn.Module):
             v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
-        if is_torch_2():
-            y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
-        else:
-            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))  # (B, N_HEADS, T, T)
-            att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
-            att = F.softmax(att, dim=-1)
-            y = att @ v  # (B, nh, T, hs)
+        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
+        # else:
+        #     att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))  # (B, N_HEADS, T, T)
+        #     att = att.masked_fill(mask, float('-inf'))
+        #     att = F.softmax(att, dim=-1)
+        #     y = att @ v  # (B, nh, T, hs)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T, C)
         y = self.resid_drop(self.c_proj(y))
@@ -402,7 +399,6 @@ def apply_rope(x: torch.Tensor, rope_cache) -> torch.Tensor:
 
 def is_torch_2():
     return torch.__version__[0] == "2"
-
 
 
 if __name__ == "__main__":

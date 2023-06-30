@@ -18,7 +18,7 @@ class FullTrainer(Trainer):
                  max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool):
         Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
 
-        self.model, self.optimizer, _ = utils.prepare_for_resuming("../tmp/checkpoint", self.learning_rate,
+        self.model, self.optimizer, _ = utils.prepare_for_resuming("../tmp/checkpoint", learning_rate=self.learning_rate,
                                                                        model_size=model_size, best=True,
                                                                        pretrain=False)
 
