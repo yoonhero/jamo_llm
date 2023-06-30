@@ -57,7 +57,7 @@ python pretrain.py \
 	--save_interval 5000 \
 	--eval_interval 500 \ 
 	--gradient_accumulate 6 \
-	--output_dir "../tmp/checkpoint" \ 
+	--checkpoint_dir "../tmp/checkpoint" \ 
 	--corpus_path "../tmp/dataset.txt" \
 	--tokenizer_path "hg_tokenizer" \       
 	--with_lr_scheduler 

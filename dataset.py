@@ -138,7 +138,7 @@ class IterablDataset(Dataset):
 
 PROMPT_DICT = {
     "prompt_input": (
-        "요청을 적절히 완료하는 응답을 작성하세요.\n\n"
+        "요청을 적절히 완료하는 응답을 작성하세요.\n"
         "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:"
     ),
     "prompt_no_input": (
@@ -166,21 +166,29 @@ def _preprocess_spm(strings, tokenizer: Tokenizer, block_size):
 
 
 class PromptDataset(Dataset):
-    def __init__(self, data_path: str, tokenizer: Union[Tokenizer, GPT2TokenizerFast], block_size):
+    def __init__(self, data_path: Union[str]="", tokenizer: Union[Tokenizer, GPT2TokenizerFast]=None, block_size:Union[int]=None, cache_dir:str=""):
         super().__init__()
-        with open(data_path, "r", "utf-8") as f:
-            list_data_dict = json.load(f)
 
-        prompt_input, prompt_no_input = PROMPT_DICT["prompt_input"], PROMPT_DICT["prompt_no_input"]
-        sources = [
-            prompt_input.format_map(example) if example.get("input", "") != "" else prompt_no_input.format_map(example)
-            for example in list_data_dict
-        ]
-        targets = [f"{example['output']}{tokenizer.eos_token}" for example in list_data_dict]
+        if cache_dir == "":
+            with open(data_path, "r", "utf-8") as f:
+                list_data_dict = json.load(f)
 
-        data = [source+target for source, target in zip(sources, targets)]
-        _preprocess = _preprocess_spm if isinstance(tokenizer, Tokenizer) else _preprocess_hg
-        self.input_ids = _preprocess(data, tokenizer, block_size)
+            prompt_input, prompt_no_input = PROMPT_DICT["prompt_input"], PROMPT_DICT["prompt_no_input"]
+            sources = [
+                prompt_input.format_map(example) if example.get("input", "") != "" else prompt_no_input.format_map(example)
+                for example in list_data_dict
+            ]
+            targets = [f"{example['output']}{tokenizer.eos_token}" for example in list_data_dict]
+
+            data = [source + target for source, target in zip(sources, targets)]
+            _preprocess = _preprocess_spm if isinstance(tokenizer, Tokenizer) else _preprocess_hg
+            self.input_ids = _preprocess(data, tokenizer, block_size)
+        else:
+            h5f = h5py.File(cache_dir, "r")
+            self.tokens = h5f["train/cache"][:]
+            h5f.close()
+            print(self.tokens[0])
+            self.num_subsets = self.tokens.shape[0]
 
     def __len__(self):
         return len(self.input_ids)

@@ -22,13 +22,14 @@ from dataset import IterablDataset
 class PreTrainer(Trainer):
     def __init__(self, model_size:str, learning_rate: float, min_lr: float, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
                  max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int,
-                 load: bool = False):
+                 load: bool = False, with_lr_scheduler: bool=False):
         Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
         self.pretrain = True
         self.max_iters = max_iters
         self.warmup_iters = warmup_iters
         self.lr_decay_iters = self.max_iters
         self.min_lr = min_lr
+        self.with_lr_scheduler = with_lr_scheduler
 
         if load:
             self.model, self.optimizer, _ = utils.prepare_for_resuming(self.checkpoint_dir, model_size, self.learning_rate,
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_interval", type=int, default=5000)
     parser.add_argument("--eval_interval", type=int, default=10000)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
-    parser.add_argument("--output_dir", type=str, default="../tmp/checkpoint")
+    parser.add_argument("--checkpoint_dir", type=str, default="../tmp/checkpoint")
     parser.add_argument("--corpus_path", type=str, default="../tmp/dataset.txt")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument("--load_model", action='store_true')
@@ -104,14 +105,15 @@ if __name__ == "__main__":
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
         corpus_path=args.corpus_path,
-        checkpoint_dir=args.output_dir,
+        checkpoint_dir=args.checkpoint_dir,
         tokenizer_path=args.tokenizer_path,
         max_iters=args.max_iters,
         warmup_iters=args.warmup_iters,
         save_interval=args.save_interval,
         eval_interval=args.eval_interval,
         gradient_accumulate=args.gradient_accumulate,
-        load=args.load_model
+        load=args.load_model,
+        with_lr_scheduler=args.with_lr_scheduler
     )
 
     trainer.train()
