@@ -37,7 +37,7 @@ class LoRATrainer(Trainer):
         g = torch.Generator()
         g.manual_seed(1231928)
         # dataset = PromptDataset(str(self.corpus_path), tokenizer, block_size)
-        dataset = PromptDataset(cache_dir="../tmp/sft-cache.hdf5")
+        dataset = PromptDataset(cache_dir="../tmp/cache/sft-cache.hdf5")
         train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         self.logger.info("Finishing Loading the DataLoader")
 

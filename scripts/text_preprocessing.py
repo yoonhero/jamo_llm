@@ -32,7 +32,7 @@ class TextPreprocessing():
         text = regex.sub(japanese_pattern, "", text)
 
         # 특수 문자 제거
-        special_word_pattern = '[-=+,#/\:^$.@*\"※~&%ㆍ』\\‘|\(\)\[\]\<\>`\'…》]'
+        special_word_pattern = '[#/\:^$@*※~&%ㆍ』\\‘|\(\)\[\]\<\>`…》]'
         text = re.sub(special_word_pattern, "", text)
 
         # 줄바꿈 문자 제거

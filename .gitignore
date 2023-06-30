@@ -171,3 +171,4 @@ cython_debug/
 /pretrain/hg_tokenizer
 /pretrain/runs
 result.txt
+/visualization/
