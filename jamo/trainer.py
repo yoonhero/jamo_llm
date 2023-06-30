@@ -59,10 +59,9 @@ class Trainer():
 
         pbar = tqdm.tqdm(range(0, self.max_iters + 1))
         for iteration in pbar:
-            if self.with_lr_scheduler:
-                lr = self.get_lr(iteration)
-                for param_group in self.optimizer.param_groups:
-                    param_group["lr"] = lr
+            lr = self.get_lr(iteration) if self.with_lr_scheduler else self.learning_rate
+            for param_group in self.optimizer.param_groups:
+                param_group["lr"] = lr
 
             for _ in range(self.gradient_accumulate):
                 x, y = next(iter(self.train_loader))
