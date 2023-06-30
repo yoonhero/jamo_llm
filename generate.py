@@ -63,6 +63,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
     parser.add_argument("--model_size", type=str, default="small")
     parser.add_argument("--model_path", type=str, default="/home/jovyan/jamo_llm/tmp/checkpoint/")
+    parser.add_argument("--chat", action="store_true")
     args = parser.parse_args()
 
     # Loading the pretrained model.
@@ -124,8 +125,15 @@ if __name__ == "__main__":
     SOS_TOKEN = "<s>"
     EOS_TOKEN = "</s>"
     EOS_ID = tokenizer.encode(EOS_TOKEN)[0]
+
+    chat_parser = (
+        "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
+        "### 명령어:\n{instruction}\n\n### 응답:"
+    )
+
     while True:
         user_prompt = input(">>> ")
+        if args.chat: user_prompt = chat_parser.format_map({"instruction":user_prompt})
         user_prompt = f"{SOS_TOKEN} {user_prompt}"
 
         if user_prompt == "q":

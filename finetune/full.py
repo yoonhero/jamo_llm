@@ -67,10 +67,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
     parser.add_argument("--model_size", type=str, default="small")
-    parser.add_argument("--learning_rate", type=float, default=5e-4)
+    parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--batch_size", type=int, default=60)
-    parser.add_argument("--max_iters", type=int, default=200)
-    parser.add_argument("--warmup_iters", type=int, default=40)
+    parser.add_argument("--max_iters", type=int, default=2000)
+    parser.add_argument("--warmup_iters", type=int, default=100)
     parser.add_argument("--save_interval", type=int, default=50)
     parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--gradient_accumulate", type=int, default=6)

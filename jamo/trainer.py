@@ -58,7 +58,7 @@ class Trainer():
     def train(self):
         self.scaler = torch.cuda.amp.GradScaler()
 
-        pbar = tqdm.tqdm(range(0, self.max_iters + 1))
+        pbar = tqdm.tqdm(range(1, self.max_iters))
         for iteration in pbar:
             lr = self.get_lr(iteration) if self.with_lr_scheduler else self.learning_rate
             for param_group in self.optimizer.param_groups:
