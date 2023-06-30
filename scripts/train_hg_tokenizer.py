@@ -5,7 +5,7 @@ def train_tokenizer():
     tokenizer = ByteLevelBPETokenizer(unicode_normalizer="nfkc", trim_offsets=True)
 
     # your text corpus data
-    paths = ["../tmp/cleaned/512.txt"]
+    paths = ["../tmp/cleaned/corpus.txt"]
     vocab_size = 32_000
 
     tokenizer.train(files=paths, vocab_size=vocab_size, min_frequency=4, special_tokens=[
