@@ -18,7 +18,7 @@ class FullTrainer(Trainer):
                  max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool):
         Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
 
-        self.model, self.optimizer, _ = utils.prepare_for_resuming("../tmp/checkpoint", learning_rate=self.learning_rate,
+        self.model, self.optimizer, _ = utils.prepare_for_resuming("./tmp/checkpoint", learning_rate=self.learning_rate,
                                                                        model_size=model_size, best=True,
                                                                        pretrain=False)
 
@@ -37,7 +37,7 @@ class FullTrainer(Trainer):
         g = torch.Generator()
         g.manual_seed(1231928)
         # dataset = PromptDataset(str(self.corpus_path), tokenizer, block_size)
-        dataset = PromptDataset(cache_dir="../tmp/cache/sft-cache.hdf5")
+        dataset = PromptDataset(cache_dir="./tmp/cache/sft-cache.hdf5")
         train_loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         self.logger.info("Finishing Loading the DataLoader")
 
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     parser.add_argument("--save_interval", type=int, default=50)
     parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
-    parser.add_argument("--checkpoint_dir", type=str, default="../tmp/finetuned")
-    parser.add_argument("--corpus_path", type=str, default="../tmp/ko_alpaca_data.json")
+    parser.add_argument("--checkpoint_dir", type=str, default="./tmp/finetuned")
+    parser.add_argument("--corpus_path", type=str, default="./tmp/ko_alpaca_data.json")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument("--with_lr_scheduler", action="store_true")
 
