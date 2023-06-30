@@ -37,6 +37,8 @@ class Trainer():
         self.eval_interval = eval_interval
         self.with_lr_scheduler = False
 
+        self.init_logger()
+
     def create_dataloader(self, tokenizer, block_size):
         return NotImplementedError
 
@@ -101,7 +103,6 @@ class Trainer():
         result = self.sampling()
         self.writer.add_text("jamo", result, iteration)
         self.model.train()
-
 
     def sampling(self):
         is_custom = isinstance(self.tokenizer, Tokenizer)

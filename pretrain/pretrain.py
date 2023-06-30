@@ -50,8 +50,6 @@ class PreTrainer(Trainer):
         self.train_loader: DataLoader = self.create_dataloader(tokenizer=self.tokenizer,
                                                                block_size=self.model.config.block_size)
 
-        Trainer.init_logger(self)
-
     def create_dataloader(self, tokenizer, block_size, seed:int=1231928):
         g = torch.Generator()
         g.manual_seed(seed)
