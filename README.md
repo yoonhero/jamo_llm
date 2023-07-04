@@ -2,9 +2,12 @@
 
 <img src="./assets/parrot.png" style="max-width:200px;">
 
-*"It's just a simple stochastic parrots"* -- by Dall-E 2
+*"It's just a simple stochastic parrots"* - by Dall-E 2
 
-JAMO(자모)는 세마고등학교 R&E 연구를 하고 있는 학생이 개발한 한국어 Large Language Model 입니다.
+
+https://github.com/yoonhero/jamo_llm/assets/57530375/5ce429f1-c1e8-467b-a4c1-77088911cf54
+
+JAMO(자모)는 세마고등학교에서 R&E 연구를 하고 있는 학생들이 개발한 한국어 Little Language Model 입니다.
 
 자모 프로젝트는 기본의 GPT-3나 GPT-4와 같은 대규모 언어 모델의 크기를 **더** 줄이기 위한 프로젝트의 일환으로 엣지 디바이스에서도 풀모델 구동이 가능하도록 연구를 진행하고 있습니다. 
 
@@ -26,7 +29,14 @@ pip install -r requirements.txt
 세팅이 완료 되었습니다. 🎉
 
 
-### Use the model
+### How to have a chat with JAMO
+
+```bash
+python generate.py \
+    --model_path /YOUR MODEL CHECKPOINT PATH \
+    --model_size small \
+    --chat 
+```
 
 
 ### Pretraining with A100
@@ -66,7 +76,24 @@ python pretrain.py \
 
 ### Fine-Tune Model
 
+파인튜닝은 지원받은 A100 GPU로 KoAlpaca와 Kullm에서 공개된 데이터셋을 합쳐서 약 2시간동안 진행했으며 학습코드는 위와 같습니다. 
 
+
+```bash
+cd pretrain
+python pretrain.py \
+    --model_size "small" \
+	--learning_rate 0.005 \ 
+	--batch_size 60 \ 
+	--max_iters 2000 \
+	--warmup_iters 100 \
+	--save_interval 100 \
+	--eval_interval 50 \ 
+	--gradient_accumulate 6 \
+	--checkpoint_dir "../tmp/finetuned" \
+	--tokenizer_path "hg_tokenizer" \       
+	--with_lr_scheduler 
+```
 
 ### Citation
 

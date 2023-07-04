@@ -1,10 +1,12 @@
 import torch
 import sys
+import io
 from pathlib import Path
 import argparse
 import glob
 import utils
 import os
+import time
 from jamo import JAMO, Tokenizer
 
 
@@ -59,6 +61,11 @@ def generate(
     return idx
 
 if __name__ == "__main__":
+    # Initiate the sys for the Korean Encoding.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding = 'utf-8')
+
     # Argument Parser
     parser = argparse.ArgumentParser(description='Train My Custom GPT 🚀!!!')
     parser.add_argument("--model_size", type=str, default="small")
@@ -118,10 +125,11 @@ if __name__ == "__main__":
             input_pos = input_pos[-1:] + 1
             idx = idx.index_copy(0, input_pos, idx_next)
             if idx_next == eos_id:
-                return idx[:input_pos] 
+                break
             else:
                 yield idx[:input_pos]
 
+        return idx[:input_pos] 
 
     SOS_TOKEN = "<s>"
     EOS_TOKEN = "</s>"
@@ -144,13 +152,14 @@ if __name__ == "__main__":
         token = torch.tensor(idx, dtype=torch.long, device=device)
 
         cur = len(SOS_TOKEN)
-        for idx in bash_generate(model, token, max_new_tokens=128, temperature=1, top_k=40, eos_id=EOS_TOKEN):
+        for idx in bash_generate(model, token, max_new_tokens=128, temperature=0.8, top_k=20, eos_id=EOS_ID):
             target = tokenizer.decode(idx)
-
+            target = target[:-1]
             for char in target[cur:]:
-               sys.stdout.write(char)
-               sys.stdout.flush()
-               cur = len(target)
+                sys.stdout.buffer.write(char.encode("utf-8"))
+                sys.stdout.flush()
+                time.sleep(0.01)
+                cur = len(target)
 
         model.reset_cache()
         print("\n")

@@ -117,7 +117,7 @@ class JAMO(nn.Module):
     @classmethod
     def from_name(cls, name: str, pretrain:bool=False) -> Self:
         config = JamoConfig.from_name(name)
-        config.dropout = 0.0 if pretrain else 0.1
+        config.dropout = 0.0 if pretrain else 0.5
         return cls(config, pretrain=pretrain)
     
     @classmethod

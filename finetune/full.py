@@ -24,11 +24,11 @@ class FullTrainer(Trainer):
 
         model_path = Path("../tmp/checkpoint")
         self.model = utils.load_model(model_path, model_size=model_size, device="cuda")
+
         self.model: nn.Module = torch.compile(self.model, mode="reduce-overhead")
         optim_group = self.model.configure_optimizers(weight_decay=1e-2)
         self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
 
-        # self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
         self.tokenizer = None
         self.train_loader, self.eval_loader = self.create_dataloader()
 
@@ -71,11 +71,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
     parser.add_argument("--model_size", type=str, default="small")
-    parser.add_argument("--learning_rate", type=float, default=3e-5)
+    parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--batch_size", type=int, default=60)
-    parser.add_argument("--max_iters", type=int, default=2000)
-    parser.add_argument("--warmup_iters", type=int, default=100)
-    parser.add_argument("--save_interval", type=int, default=100)
+    parser.add_argument("--max_iters", type=int, default=6000)
+    parser.add_argument("--warmup_iters", type=int, default=300)
+    parser.add_argument("--save_interval", type=int, default=500)
     parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
     parser.add_argument("--checkpoint_dir", type=str, default="../tmp/finetuned")

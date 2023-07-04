@@ -19,12 +19,10 @@ data = data + our_data
 
 PROMPT_DICT = {
     "prompt_input": (
-        "요청을 적절히 완료하는 응답을 작성하세요.\n"
-        "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:\n"
+        "### 질문: {instruction}\n\n### 맥락: {input}\n\n### 답변: "
     ),
     "prompt_no_input": (
-        "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
-        "### 명령어:\n{instruction}\n\n### 응답:\n"
+        "### 질문: {instruction}\n\n### 답변:"
     ),
 }
 
