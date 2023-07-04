@@ -15,14 +15,16 @@ our_data = [
     {"instruction": "자신을 소개해주세요.", "input": "", "output": "저는 자모라고 불리는 인공 지능 챗봇입니다. 세마고 학생들이 개발한 GPT 아키텍처를 기반으로 학습되었으며, 다양한 주제에 대한 대화를 지원하고 있습니다. 저에게 궁금한 것이 있으면 얼마든지 물어보세요!"},
 ]
 
-data = data + our_data
+data = data+our_data
 
 PROMPT_DICT = {
     "prompt_input": (
-        "### 질문: {instruction}\n\n### 맥락: {input}\n\n### 답변: "
+        "요청을 적절히 완료하는 응답을 작성하세요.\n"
+        "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:\n"
     ),
     "prompt_no_input": (
-        "### 질문: {instruction}\n\n### 답변:"
+        "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
+        "### 명령어:\n{instruction}\n\n### 응답:\n"
     ),
 }
 

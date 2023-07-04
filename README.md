@@ -81,7 +81,7 @@ python pretrain.py \
 
 ```bash
 cd pretrain
-python pretrain.py \
+python full.py \
     --model_size "small" \
 	--learning_rate 0.005 \ 
 	--batch_size 60 \ 
