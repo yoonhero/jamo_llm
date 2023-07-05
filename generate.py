@@ -75,7 +75,13 @@ if __name__ == "__main__":
 
     # Loading the pretrained model.
     torch.set_float32_matmul_precision("high")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    is_mps = torch.backends.mps.is_available()
+    if is_mps:    
+        device = torch.device("mps")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     model_path = Path(args.model_path)
     model = utils.load_model(model_path, model_size="small", device=device)
     model.eval()
@@ -112,7 +118,12 @@ if __name__ == "__main__":
 
         # generate max_new_tokens tokens
         for _ in range(max_new_tokens):
-            x = idx.index_select(0, input_pos).view(1, -1)
+            if not is_mps:
+                x = idx.index_select(0, input_pos).view(1, -1)
+            else:
+                index = torch.ones_like(input_pos)
+                x = idx[index==1].view(1, -1)
+
             logits = model(x, max_seq_length, input_pos)
             logits = logits[0, -1] / temperature
 
@@ -123,7 +134,11 @@ if __name__ == "__main__":
             idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
 
             input_pos = input_pos[-1:] + 1
-            idx = idx.index_copy(0, input_pos, idx_next)
+            if not is_mps:
+                idx = idx.index_copy(0, input_pos, idx_next)
+            else:
+                idx[input_pos] = idx_next
+
             if idx_next == eos_id:
                 break
             else:
