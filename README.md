@@ -4,9 +4,7 @@
 
 *"It's just a simple stochastic parrots"* - by Dall-E 2
 
-**CHECKPOINT DOWNLOAD LINK [Google Drive](https://drive.google.com/file/d/1wgwGpYZigDEh7Gp_pALlIFmBqHM4RWiB/view?usp=sharing)**
-
-https://github.com/yoonhero/jamo_llm/assets/57530375/5ce429f1-c1e8-467b-a4c1-77088911cf54
+<img src="./assets/chat.png" >
 
 JAMO(자모)는 세마고등학교에서 R&E 연구를 하고 있는 학생들이 개발한 한국어 Little Language Model 입니다.
 
@@ -26,6 +24,12 @@ git clone https://github.com/yoonhero/jamo_llm
 ```bash
 pip install -r requirements.txt
 ```
+
+### Install Checkpoint for Inference.
+
+- JAMO 2B SMALL Finetuned Model Checkpoint
+	- [Google Drive Link for Download](https://drive.google.com/file/d/1wgwGpYZigDEh7Gp_pALlIFmBqHM4RWiB/view?usp=sharing)
+
 
 세팅이 완료 되었습니다. 🎉
 
