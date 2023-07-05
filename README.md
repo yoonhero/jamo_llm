@@ -4,6 +4,7 @@
 
 *"It's just a simple stochastic parrots"* - by Dall-E 2
 
+**CHECKPOINT DOWNLOAD LINK [Google Drive](https://drive.google.com/file/d/1wgwGpYZigDEh7Gp_pALlIFmBqHM4RWiB/view?usp=sharing)**
 
 https://github.com/yoonhero/jamo_llm/assets/57530375/5ce429f1-c1e8-467b-a4c1-77088911cf54
 

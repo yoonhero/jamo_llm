@@ -56,7 +56,7 @@ np_ids = np.array(input_ids)
 print(f"Sample Item:\n {np_ids[0]}")
 
 total_dataset_size = np_ids.shape[0]
-eval_size = 600
+eval_size = 600 if total_dataset_size > 600 else 0
 train_size = total_dataset_size - eval_size
 print(f"Total Dataset: {total_dataset_size} | Train: {train_size} | Eval: {eval_size}")
 
