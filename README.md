@@ -33,7 +33,6 @@ pip install -r requirements.txt
 
 세팅이 완료 되었습니다. 🎉
 
-
 ### How to have a chat with JAMO
 
 ```bash
@@ -43,6 +42,9 @@ python generate.py \
     --chat 
 ```
 
+<img src="./assets/reasoning.png" style="max-width:200px;" />
+
+*"Context 기능을 사용할 시에 숨겨진 추론 능력을 발견할 수 있다."* 
 
 ### Pretraining with A100
 

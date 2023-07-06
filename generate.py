@@ -71,6 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_size", type=str, default="small")
     parser.add_argument("--model_path", type=str, default="/home/jovyan/jamo_llm/tmp/checkpoint/")
     parser.add_argument("--chat", action="store_true")
+    parser.add_argument("--context", action="store_true")
     args = parser.parse_args()
 
     # Loading the pretrained model.
@@ -148,9 +149,17 @@ if __name__ == "__main__":
         "### 명령어:\n{instruction}\n\n### 응답:"
     )
 
+    contexts = ""
+
     while True:
         user_prompt = input(">>> ")
-        if args.chat: user_prompt = chat_parser.format_map({"instruction":user_prompt})
+        if args.context:
+            contexts += user_prompt + " "
+            roi = min(len(contexts), 200)
+            contexts = contexts[-roi:]
+        else: contexts = user_prompt
+
+        if args.chat: user_prompt = chat_parser.format_map({"instruction":contexts})
         user_prompt = f"{SOS_TOKEN} {user_prompt}"
 
         if user_prompt == "q":
