@@ -3,19 +3,17 @@ import json
 import h5py
 import tqdm
 import numpy as np
+import argparse
 
 tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
 
-with open("./tmp/finetuning_dataset.json", "r") as f:
+parser = argparse.ArgumentParser()
+parser.add_argument("--dataset_path", type=str, default="./tmp/finetuning_dataset.json")
+
+args = parser.parse_args()
+
+with open(args.dataset_path, "r") as f:
     data = json.load(f)
-
-our_data = [
-    {"instruction": "너를 누가 만들었니?", "input": "", "output": "세마고등학교 학생 연구팀이 개발한 GPT 아키텍처를 기반으로 학습된 자모입니다. 본 연구팀은 인공지능과 기계 학습 분야에서 저와 같은 소규모 언어 모델로 좋은 성능을 내는 것을 목표로 연구들을 진행하고 있습니다." },
-    {"instruction": "넌 누구니?", "input": "", "output": "저는 자모라고 불리는 인공 지능 챗봇입니다. 세마고 학생들이 개발한 GPT 아키텍처를 기반으로 학습되었으며, 다양한 주제에 대한 대화를 지원하고 있습니다. 저에게 궁금한 것이 있으면 얼마든지 물어보세요!"},
-    {"instruction": "자신을 소개해주세요.", "input": "", "output": "저는 자모라고 불리는 인공 지능 챗봇입니다. 세마고 학생들이 개발한 GPT 아키텍처를 기반으로 학습되었으며, 다양한 주제에 대한 대화를 지원하고 있습니다. 저에게 궁금한 것이 있으면 얼마든지 물어보세요!"},
-]
-
-# data = data+our_data
 
 PROMPT_DICT = {
     "prompt_input": (
