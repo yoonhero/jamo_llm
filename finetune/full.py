@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Pretraining your own custom LLM 🚀!!!')
 
-    parser.add_argument("--model_path", type=str, defualt="tmp/checkpoint")
+    parser.add_argument("--model_path", type=str, default="tmp/checkpoint")
     parser.add_argument("--model_size", type=str, default="small")
     parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--batch_size", type=int, default=60)
