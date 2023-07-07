@@ -44,8 +44,8 @@ class FullTrainer(Trainer):
     def create_dataloader(self):
         g = torch.Generator()
         g.manual_seed(1231928)
-        train_dataset = PromptDataset(cache_dir=self.cache_dir)
-        eval_dataset = PromptDataset(cache_dir=self.cache_dir, mode="eval")
+        train_dataset = PromptDataset(cache_dir=self.cache_path)
+        eval_dataset = PromptDataset(cache_dir=self.cache_path, mode="eval")
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         if len(eval_dataset) == 0:
             eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
