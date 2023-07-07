@@ -166,8 +166,9 @@ def _preprocess_spm(strings, tokenizer: Tokenizer, block_size):
 
 
 class PromptDataset(Dataset):
-    def __init__(self, data_path: Optional[str]="", tokenizer: Union[Tokenizer, GPT2TokenizerFast]=None, block_size: Optional[int]=None, cache_dir:str="", mode: str="train"):
+    def __init__(self, data_path: Optional[str]="", tokenizer: Union[Tokenizer, GPT2TokenizerFast]=None, block_size: Optional[int]=None, cache_dir:str="", mode: str="train", device="cuda"):
         super().__init__()
+        self.device = device
 
         if cache_dir == "":
             with open(data_path, "r", "utf-8") as f:
@@ -193,7 +194,7 @@ class PromptDataset(Dataset):
 
     def __getitem__(self, idx:int):
         text = self.input_ids[idx]
-        x = torch.tensor(text[:-1], dtype=torch.long, device="cuda")
-        y = torch.tensor(text[1:], dtype=torch.long, device="cuda")
+        x = torch.tensor(text[:-1], dtype=torch.long, device=self.device)
+        y = torch.tensor(text[1:], dtype=torch.long, device=self.device)
 
         return x, y

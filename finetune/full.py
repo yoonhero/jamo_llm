@@ -22,8 +22,8 @@ class FullTrainer(Trainer):
         Trainer.__init__(self, learning_rate, batch_size, "", checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
 
         model_path = Path(model_path)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = utils.load_model(model_path, model_size=model_size, device=device)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = utils.load_model(model_path, model_size=model_size, device=self.device)
         self.cache_path = cache_path
 
         self.model: nn.Module = torch.compile(self.model, mode="default")
@@ -44,8 +44,8 @@ class FullTrainer(Trainer):
     def create_dataloader(self):
         g = torch.Generator()
         g.manual_seed(1231928)
-        train_dataset = PromptDataset(cache_dir=self.cache_path)
-        eval_dataset = PromptDataset(cache_dir=self.cache_path, mode="eval")
+        train_dataset = PromptDataset(cache_dir=self.cache_path, device=self.device)
+        eval_dataset = PromptDataset(cache_dir=self.cache_path, mode="eval", device=self.device)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         if len(eval_dataset) == 0:
             eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
