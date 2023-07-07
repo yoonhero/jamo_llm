@@ -9,3 +9,4 @@ tensorboard
 tokenizers
 regex
 transformers
+h5py==3.7.0
