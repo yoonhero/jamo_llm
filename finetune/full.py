@@ -89,6 +89,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     trainer = FullTrainer(
+        model_path=args.model_path,
         model_size=args.model_size,
         learning_rate=args.learning_rate,
         batch_size=args.batch_size,
