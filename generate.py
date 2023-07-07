@@ -169,7 +169,7 @@ if __name__ == "__main__":
         token = torch.tensor(idx, dtype=torch.long, device=device)
 
         cur = len(SOS_TOKEN)
-        for idx in bash_generate(model, token, max_new_tokens=128, temperature=0.8, top_k=20, eos_id=EOS_ID):
+        for idx in bash_generate(model, token, max_new_tokens=256, temperature=0.8, top_k=20, eos_id=EOS_ID):
             target = tokenizer.decode(idx)
             target = target[:-1]
             for char in target[cur:]:

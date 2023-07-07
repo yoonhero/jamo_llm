@@ -15,7 +15,7 @@ our_data = [
     {"instruction": "자신을 소개해주세요.", "input": "", "output": "저는 자모라고 불리는 인공 지능 챗봇입니다. 세마고 학생들이 개발한 GPT 아키텍처를 기반으로 학습되었으며, 다양한 주제에 대한 대화를 지원하고 있습니다. 저에게 궁금한 것이 있으면 얼마든지 물어보세요!"},
 ]
 
-data = data+our_data
+# data = data+our_data
 
 PROMPT_DICT = {
     "prompt_input": (
@@ -63,7 +63,7 @@ print(f"Total Dataset: {total_dataset_size} | Train: {train_size} | Eval: {eval_
 np.random.shuffle(np_ids)
 training_ds, eval_ds = np_ids[:train_size,:], np_ids[train_size:,:]
 
-with h5py.File('./tmp/cache/sft-cache.hdf5', 'w') as f:
+with h5py.File('./tmp/sft-cache.hdf5', 'w') as f:
     f.create_dataset("train", data=training_ds, dtype=np.int16)
     f.create_dataset("eval", data=eval_ds, dtype=np.int16)
 
