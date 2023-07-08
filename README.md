@@ -96,7 +96,7 @@ Prompt Dataset은 KoAlpaca나 Kullm에서 발표한 것을 다운받아서 진�
 2. 파인튜닝 진행하기 
 
 ```bash
-cd pretrain
+cd finetune
 python full.py \
 	--model_path "target model path" \
     --model_size "small" \
@@ -107,7 +107,7 @@ python full.py \
 	--save_interval 100 \
 	--eval_interval 50 \ 
 	--gradient_accumulate 6 \
-	--cache_path "../tmp/seft-cache.hdf5" \
+	--cache_path "../tmp/sft-cache.hdf5" \
 	--result_checkpoint_dir "../tmp/finetuned" \
 	--with_lr_scheduler 
 ```
