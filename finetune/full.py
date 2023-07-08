@@ -47,7 +47,7 @@ class FullTrainer(Trainer):
         train_dataset = PromptDataset(cache_dir=self.cache_path, device=self.device)
         eval_dataset = PromptDataset(cache_dir=self.cache_path, mode="eval", device=self.device)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
-        if len(eval_dataset) == 0:
+        if len(eval_dataset) != 0:
             eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
         else: eval_loader = None
         self.logger.info("Finishing Loading the DataLoader")
