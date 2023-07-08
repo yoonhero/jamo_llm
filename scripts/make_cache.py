@@ -12,7 +12,7 @@ parser.add_argument("--dataset_path", type=str, default="./tmp/finetuning_datase
 
 args = parser.parse_args()
 
-with open(args.dataset_path, "r") as f:
+with open(args.dataset_path, "r", encoding="utf8") as f:
     data = json.load(f)
 
 PROMPT_DICT = {
