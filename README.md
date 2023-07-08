@@ -83,12 +83,22 @@ python pretrain.py \
 
 ### Fine-Tune Model
 
-파인튜닝은 지원받은 A100 GPU로 KoAlpaca와 Kullm에서 공개된 데이터셋을 합쳐서 약 2시간동안 진행했으며 학습코드는 위와 같습니다. 
+파인튜닝은 지원받은 A100 GPU로 KoAlpaca와 Kullm에서 공개된 데이터셋을 합쳐서 약 2시간동안 진행했으며 파인튜닝 과정은 위와 같습니다. 본 모델은 파라메터가 굉장히 적어서, 속도가 느릴 수 있지만 CPU에서도 학습이 가능함을 확인할 수 있었습니다. 
 
+1. 프롬프트 캐시 파일 만들기
+
+```bash
+python scripts/make_cache.py --dataset_path "Prompt Dataset Path Here"
+```
+
+Prompt Dataset은 KoAlpaca나 Kullm에서 발표한 것을 다운받아서 진행해주시면 됩니다. 
+
+2. 파인튜닝 진행하기 
 
 ```bash
 cd pretrain
 python full.py \
+	--model_path "target model path" \
     --model_size "small" \
 	--learning_rate 0.005 \ 
 	--batch_size 60 \ 
@@ -97,8 +107,8 @@ python full.py \
 	--save_interval 100 \
 	--eval_interval 50 \ 
 	--gradient_accumulate 6 \
-	--checkpoint_dir "../tmp/finetuned" \
-	--tokenizer_path "hg_tokenizer" \       
+	--cache_path "../tmp/seft-cache.hdf5" \
+	--result_checkpoint_dir "../tmp/finetuned" \
 	--with_lr_scheduler 
 ```
 

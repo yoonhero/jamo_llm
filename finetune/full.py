@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_interval", type=int, default=500)
     parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
-    parser.add_argument("--checkpoint_dir", type=str, default="../tmp/finetuned")
+    parser.add_argument("--result_checkpoint_dir", type=str, default="../tmp/finetuned")
     parser.add_argument("--cache_path", type=str, default="../tmp/sft-cache.hdf5")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument("--with_lr_scheduler", action="store_true")
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         max_iters=args.max_iters,
         warmup_iters=args.warmup_iters,
         cache_path=args.cache_path,
-        checkpoint_dir=args.checkpoint_dir,
+        checkpoint_dir=args.result_checkpoint_dir,
         tokenizer_path=args.tokenizer_path,
         save_interval=args.save_interval,
         eval_interval=args.eval_interval,
