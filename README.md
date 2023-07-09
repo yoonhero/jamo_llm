@@ -35,6 +35,8 @@ pip install -r requirements.txt
 
 ### How to have a chat with JAMO
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1hokfFkM8NcR5VQDX8uXMvWr2h6W_1FI3?usp=sharing)
+
 ```bash
 python generate.py \
     --model_path /YOUR MODEL CHECKPOINT PATH \
@@ -82,6 +84,9 @@ python pretrain.py \
 
 
 ### Fine-Tune Model
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1LeUxa_iZXs-CgDi7blyJkPLhf2112aq_?usp=sharing)
+
 
 파인튜닝은 지원받은 A100 GPU로 KoAlpaca와 Kullm에서 공개된 데이터셋을 합쳐서 약 2시간동안 진행했으며 파인튜닝 과정은 위와 같습니다. 본 모델은 파라메터가 굉장히 적어서, 속도가 느릴 수 있지만 CPU에서도 학습이 가능함을 확인할 수 있었습니다. 
 
