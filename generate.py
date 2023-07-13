@@ -136,9 +136,10 @@ if __name__ == "__main__":
             if idx_next == eos_id:
                 break
             else:
-                yield idx[:input_pos]
+                yield idx[:input_pos], False
 
-        return idx[:input_pos] 
+        yield idx[:input_pos], True
+        return 
 
     SOS_TOKEN = "<s>"
     EOS_TOKEN = "</s>"
@@ -169,9 +170,10 @@ if __name__ == "__main__":
         token = torch.tensor(idx, dtype=torch.long, device=device)
 
         cur = len(SOS_TOKEN)
-        for idx in bash_generate(model, token, max_new_tokens=256, temperature=0.8, top_k=20, eos_id=EOS_ID):
+        for idx, eos in bash_generate(model, token, max_new_tokens=256, temperature=0.8, top_k=20, eos_id=EOS_ID):
             target = tokenizer.decode(idx)
-            target = target[:-1]
+            if not eos:
+                target = target[:-1]
             for char in target[cur:]:
                 sys.stdout.buffer.write(char.encode("utf-8"))
                 sys.stdout.flush()

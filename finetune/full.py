@@ -14,11 +14,12 @@ from sophia import SophiaG
 from jamo import Tokenizer
 import utils
 from jamo.trainer import Trainer
+from torchcontrib.optim import SWA
 
 
 class FullTrainer(Trainer):
     def __init__(self, model_path: str, model_size:str, learning_rate: float, batch_size: int, cache_path: str, checkpoint_dir: str, tokenizer_path: str,
-                 max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool):
+                 max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool, with_swa: bool):
         Trainer.__init__(self, learning_rate, batch_size, "", checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
 
         model_path = Path(model_path)
@@ -28,7 +29,12 @@ class FullTrainer(Trainer):
 
         self.model: nn.Module = torch.compile(self.model, mode="default")
         optim_group = self.model.configure_optimizers(weight_decay=2e-1)
-        self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
+
+        if not with_swa:
+            self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
+        else:
+            base_opt = optim.Adam(optim_group, lr=self.learning_rate, betas=(0.965, 0.99))
+            self.optimizer = SWA(base_opt, swa_start=10, swa_freq=5, swa_lr=0.05)
 
         self.tokenizer = None
         self.train_loader, self.eval_loader = self.create_dataloader()
@@ -81,6 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_interval", type=int, default=500)
     parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--gradient_accumulate", type=int, default=6)
+    parser.add_argument("--with_swa", action="store_true")
     parser.add_argument("--result_checkpoint_dir", type=str, default="../tmp/finetuned")
     parser.add_argument("--cache_path", type=str, default="../tmp/sft-cache.hdf5")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
@@ -101,7 +108,8 @@ if __name__ == "__main__":
         save_interval=args.save_interval,
         eval_interval=args.eval_interval,
         gradient_accumulate=args.gradient_accumulate,
-        with_lr_scheduler=args.with_lr_scheduler
+        with_lr_scheduler=args.with_lr_scheduler,
+        with_swa=args.with_swa
     )
 
     trainer.train()

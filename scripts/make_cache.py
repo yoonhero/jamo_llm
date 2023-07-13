@@ -18,7 +18,7 @@ with open(args.dataset_path, "r", encoding="utf8") as f:
 PROMPT_DICT = {
     "prompt_input": (
         "요청을 적절히 완료하는 응답을 작성하세요.\n"
-        "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:\n"
+        "### 명령어:\n{instruction}\n{input}\n\n### 응답:\n"
     ),
     "prompt_no_input": (
         "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
