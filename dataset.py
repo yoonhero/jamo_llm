@@ -15,6 +15,7 @@ from typing import Optional, Union
 import codecs
 from multiprocessing import Pool
 import copy
+import glob
 
 from jamo import Tokenizer
 
@@ -33,13 +34,26 @@ class IterablDataset(Dataset):
             start = time.time()
 
             # self.texts = self.load_corpus(corpus)
-            with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
-                print("Loading Enormous Line by Line")
+            total_files = glob.glob(str(corpus / "*"))
+            print(f"Total Chunk: {len(total_files)}")
 
-                for line in tqdm.tqdm(f, total=7653985):
-                    # if len(line) < 200:
-                    #     return
-                    self.texts.append(line.strip())
+            cpu_cores = os.cpu_count()
+            pool = Pool(cpu_cores-1)
+
+            with tqdm.tqdm(total=len(total_files)) as pbar:
+                for _ in tqdm.tqdm(pool.imap_unordered(self.process_chunk, total_files)):
+                    pbar.update()
+
+            pool.close()
+            pool.join()
+
+            # with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
+            #     print("Loading Enormous Line by Line")
+
+            #     for line in tqdm.tqdm(f, total=7653985):
+            #         # if len(line) < 200:
+            #         #     return
+            #         self.texts.append(line.strip())
 
             print(f"Loading Done in {time.time() - start:.4f}s")
             self.num_subsets = len(self.texts)
@@ -49,14 +63,18 @@ class IterablDataset(Dataset):
             h5f.close()
             self.num_subsets = self.tokens.shape[0]
 
-    def process_chunk(self, chunk):
+    def process_chunk(self, path):
         # Process each chunk of lines using multiprocessing
-        processed_chunk = []
-        for line in chunk:
-            # if len(line) < 400:
-            #     continue
-            processed_chunk.append(line)
-        return processed_chunk
+        with codecs.open(path, "r", encoding="utf-8", errors="ignore") as file:
+            for line in file:
+                self.texts.append(line.strip())
+
+        # processed_chunk = []
+        # for line in chunk:
+        #     # if len(line) < 400:
+        #     #     continue
+        #     processed_chunk.append(line.strip())
+        return 
 
     def load_corpus(self, file_path, chunk_size=10000):
         pool = Pool(os.cpu_count() - 1)
@@ -199,3 +217,5 @@ class PromptDataset(Dataset):
 
         return x, y
 
+if __name__ == "__main__":
+    dataset = IterablDataset(Path("/Volumes/T7/dataset/splitted"), None, 513)
