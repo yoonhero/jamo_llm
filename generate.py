@@ -8,6 +8,7 @@ import utils
 import os
 import time
 from jamo import JAMO, Tokenizer
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
 @torch.no_grad()
@@ -85,7 +86,7 @@ if __name__ == "__main__":
 
     model_path = Path(args.model_path)
     model = utils.load_model(model_path, model_size="small", device=device)
-    model.eval()
+    model = model.eval()
 
     # Loading the tokenizer.
     if model.config.vocab_size == 20000:
@@ -95,7 +96,7 @@ if __name__ == "__main__":
         tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
     print("⭐️ Loading LLM Done! ⭐️")
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def bash_generate(
             model: JAMO,
             idx: torch.Tensor,
@@ -106,40 +107,45 @@ if __name__ == "__main__":
             top_k=None,
             eos_id=None,
     ) -> torch.Tensor:
-        T = idx.size(0)
-        T_new = T + max_new_tokens
-        if max_seq_length is None:
-            max_seq_length = min(T_new, model.config.block_size)
+        with torch.inference_mode():
+            T = idx.size(0)
+            T_new = T + max_new_tokens
+            if max_seq_length is None:
+                max_seq_length = min(T_new, model.config.block_size)
 
-        device, dtype = idx.device, idx.dtype
-        empty = torch.empty(T_new, dtype=dtype, device=device)
-        empty[:T] = idx
-        idx = empty
-        input_pos = torch.arange(0, T, device=device)
+            device, dtype = idx.device, idx.dtype
+            empty = torch.empty(T_new, dtype=dtype, device=device)
+            empty[:T] = idx
+            idx = empty
+            input_pos = torch.arange(0, T, device=device)
 
-        # generate max_new_tokens tokens
-        for _ in range(max_new_tokens):
-            x = idx.index_select(0, input_pos).view(1, -1)
+            # generate max_new_tokens tokens
+            for _ in range(max_new_tokens):
+                x = idx.index_select(0, input_pos).view(1, -1)
 
-            logits = model(x, max_seq_length, input_pos)
-            logits = logits[0, -1] / temperature
+               # with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+                    #with record_function("model_inference"):
+                logits = model(x, max_seq_length, input_pos)
+                # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
+                #prof.export_chrome_trace("trace.json")
+                logits = logits[0, -1] / temperature
 
-            if top_k is not None:
-                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-                logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
-            probs = torch.nn.functional.softmax(logits, dim=-1)
-            idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
+                if top_k is not None:
+                    v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                    logits = torch.where(logits < v[[-1]], -float("Inf"), logits)
+                probs = torch.nn.functional.softmax(logits, dim=-1)
+                idx_next = torch.multinomial(probs, num_samples=1).to(dtype=dtype)
 
-            input_pos = input_pos[-1:] + 1
-            idx = idx.index_copy(0, input_pos, idx_next)
+                input_pos = input_pos[-1:] + 1
+                idx = idx.index_copy(0, input_pos, idx_next)
 
-            if idx_next == eos_id:
-                break
-            else:
-                yield idx[:input_pos], False
+                if idx_next == eos_id:
+                    break
+                else:
+                    yield idx[:input_pos], False
 
-        yield idx[:input_pos], True
-        return 
+            yield idx[:input_pos], True
+            return 
 
     SOS_TOKEN = "<s>"
     EOS_TOKEN = "</s>"
@@ -147,7 +153,7 @@ if __name__ == "__main__":
 
     chat_parser = (
         "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
-        "### 명령어:\n{instruction}\n\n### 응답:"
+        "### 명령어:\n{instruction}\n\n### 응답:\n"
     )
 
     contexts = ""

@@ -8,6 +8,9 @@ from torch.utils.data import DataLoader
 from typing import Optional, Union
 from transformers import GPT2TokenizerFast
 import gc
+try:
+    import wandb
+except: pass
 
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
@@ -27,7 +30,7 @@ class Trainer():
                  ):
         self.learning_rate = learning_rate
         self.batch_size = batch_size
-        self.max_iters = 2000
+        # self.max_iters = 2000
 
         self.corpus_path: Path = Path(corpus_path)
         self.checkpoint_dir: Path = Path(checkpoint_dir)
@@ -37,8 +40,6 @@ class Trainer():
         self.save_interval = save_interval
         self.eval_interval = eval_interval
         self.with_lr_scheduler = False
-
-        self.init_logger()
 
     def create_dataloader(self, tokenizer, block_size):
         return NotImplementedError
@@ -55,6 +56,22 @@ class Trainer():
         self.logger.addHandler(fileHandler)
         self.logger.setLevel(level=logging.INFO)
 
+        try: 
+            wandb.init(
+                # set the wandb project where this run will be logged
+                project="",
+                
+                # track hyperparameters and run metadata
+                config={
+                    "learning_rate": self.learning_rate,
+                    "architecture": "GPT",
+                    "dataset": "Custom Korean Corpus",
+                    "epochs": self.max_iters,
+                }
+            )
+            wandb.watch(self.model, log_freq=100) 
+        except ImportError: pass
+
     def train(self):
         self.scaler = torch.cuda.amp.GradScaler()
 
@@ -65,17 +82,19 @@ class Trainer():
                 param_group["lr"] = lr
 
             for _ in range(self.gradient_accumulate):
-                x, y = next(iter(self.train_loader))
+                x, y, mask = next(iter(self.train_loader))
 
-                def minibatch(x, y):
+                def minibatch(x, y, mask):
                     with torch.cuda.amp.autocast():
                         logits = self.model(x)
+                        logits[mask==0] = float("-inf")
                         loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1),
                                                                  ignore_index=-1)
                         self.scaler.scale(loss / self.gradient_accumulate).backward()
                         return loss
 
-                loss = minibatch(x, y)
+                loss = minibatch(x, y, mask)
+                wandb.log({"loss": loss.item()})
 
             self.scaler.step(self.optimizer)
             self.scaler.update()
@@ -92,18 +111,21 @@ class Trainer():
                 self.eval(iteration)
 
         self.writer.close()
+        wandb.finish()
 
     @torch.no_grad()
     def eval(self, iteration):
         losses = []
-        for (x, y) in self.eval_loader:
+        for (x, y, mask) in self.eval_loader:
             logits = self.model(x)
+            # Exclude the masked position during trainig process for good result.
+            logits[mask==0] = float("-inf")
             loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
             losses.append(loss.item())
 
-        min_loss = sum(losses) / len(losses)
-        self.writer.add_scalar("Loss/eval", min_loss, iteration)
-        self.logger.info(f"Iter {iteration}: Eval Loss = {min_loss}")
+        loss_mu = sum(losses) / len(losses)
+        self.writer.add_scalar("Loss/eval", loss_mu, iteration)
+        self.logger.info(f"Iter {iteration}: Eval Loss = {loss_mu}")
 
         # self.writer.add_text("jamo", result, iteration)
 
@@ -111,12 +133,13 @@ class Trainer():
             self.writer.add_histogram(name, param, iteration)
 
     def sampling(self):
-        is_custom = isinstance(self.tokenizer, Tokenizer)
-        kwargs = {"bos": True} if is_custom else {}
-        token = self.tokenizer.encode("" if is_custom else "<s>", **kwargs)
-        token = torch.tensor(token, dtype=torch.long, device="cuda")
-        eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
-        self.model.reset_cache()
+        # is_custom = isinstance(self.tokenizer, Tokenizer)
+        # kwargs = {"bos": True} if is_custom else {}
+        # token = self.tokenizer.encode("" if is_custom else "<s>", **kwargs)
+        # token = torch.tensor(token, dtype=torch.long, device="cuda")
+        token = self.tokenizer.encode("<s>", return_tensors="pt").to("cuda")
+        # eos_id = self.tokenizer.eos_id if is_custom else self.tokenizer.encode("</s>")
+        eos_id = self.tokenizer.encode("</s>")[0]
         output = generate(self.model, token, max_new_tokens=100, temperature=0.8, top_k=20, eos_id=eos_id)
         self.model.reset_cache()
         result = self.tokenizer.decode(output)

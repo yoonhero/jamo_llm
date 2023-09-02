@@ -4,7 +4,10 @@ import torch.nn.functional as F
 import math
 from dataclasses import dataclass
 from typing_extensions import Self
-
+try: 
+    from flash_attn import flash_attn_qkvpacked_func, flash_attn_func
+except ImportError:
+    pass
 
 @dataclass 
 class JamoConfig: 
@@ -21,6 +24,7 @@ class JamoConfig:
 
 
 jamo_configs = {
+    "base": dict(n_layer=20, n_heads=16, n_embd=1024, block_size=512, vocab_size=51200, dropout=0.1),
     "tiny": dict(n_layer=1, n_heads=16, n_embd=1024, vocab_size=8000),
     "supersmall": dict(n_layer=12, n_heads=12, n_embd=768),
     "small": dict(n_layer=15, n_heads=16, n_embd=1024, vocab_size=8000),
@@ -54,7 +58,7 @@ class JAMO(nn.Module):
                 if pn.endswith('c_proj.weight'):
                     torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
 
-            print(f"Number of parameters: {human_format(self.get_num_params())}")
+            print(f"Number of parameters: {self.get_num_params()}")
 
     def get_num_params(self):
         n_params = [p.nelement() for p in self.parameters()]
@@ -220,10 +224,9 @@ class CasualAttention(nn.Module):
         self.n_embd = config.n_embd
         self.block_size = config.block_size
 
-        self.attn_dropout = nn.Dropout(config.dropout)
+        self.dropout = config.dropout
+        # self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_drop = nn.Dropout(config.dropout)
-
-
 
     def forward(self, x: torch.Tensor, rope: torch.Tensor, mask: torch.Tensor, max_seq_length: int, input_pos=None, kv_cache=None):
         B, T, C = x.size()
@@ -253,16 +256,18 @@ class CasualAttention(nn.Module):
             v = cache_v.index_copy(2, input_pos, v)
             kv_cache = k, v
 
-        y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
+        try: 
+            y = flash_attn_func(q, k, v, dropout_p=self.dropout)
+            y = y.view(B, T, C)
+        except:
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=self.dropout)
+            y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T, C)
         # else:
         #     att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))  # (B, N_HEADS, T, T)
         #     att = att.masked_fill(mask, float('-inf'))
         #     att = F.softmax(att, dim=-1)
         #     y = att @ v  # (B, nh, T, hs)
-
-        y = y.transpose(1, 2).contiguous().view(B, T, C) # (B, T, C)
         y = self.resid_drop(self.c_proj(y))
-
         return y, kv_cache
 
 
@@ -338,15 +343,6 @@ class RMSNorm(nn.Module):
         return self.scale * x_normed
 
 
-def human_format(num):
-    magnitude = 0
-    while abs(num) >= 1000:
-        magnitude += 1
-        num /= 1000.0
-    num = int(num * 10) / 10
-    return f"{f'{num:f}'.rstrip('0').rstrip('.')}{['', 'k', 'M', 'B', 'T'][magnitude]}"
-
-
 def build_rope_cache(
     seq_len: int, n_elem: int, dtype: torch.dtype, device: torch.device, base: int = 10000
 ):
@@ -398,5 +394,5 @@ def is_torch_2():
 
 
 if __name__ == "__main__":
-    jamo = JAMO.from_name("supersmall")
-    jamo.configure_optimizers()
+    jamo = JAMO.from_name("base", pretrain=True)
+    # jamo.configure_optimizers()

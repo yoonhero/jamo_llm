@@ -37,8 +37,8 @@ class IterablDataset(Dataset):
                 print("Loading Enormous Line by Line")
 
                 for line in tqdm.tqdm(f, total=7653985):
-                    if len(line) < 200:
-                        return
+                    # if len(line) < 200:
+                    #     return
                     self.texts.append(line.strip())
 
             print(f"Loading Done in {time.time() - start:.4f}s")
@@ -49,13 +49,12 @@ class IterablDataset(Dataset):
             h5f.close()
             self.num_subsets = self.tokens.shape[0]
 
-
     def process_chunk(self, chunk):
         # Process each chunk of lines using multiprocessing
         processed_chunk = []
         for line in chunk:
-            if len(line) < 400:
-                continue
+            # if len(line) < 400:
+            #     continue
             processed_chunk.append(line)
         return processed_chunk
 
@@ -102,20 +101,21 @@ class IterablDataset(Dataset):
         self.from_cache = True
 
     def _collate_fn(self, text):
-
         kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if self.tokenizer_is_custom else {
-            "max_length": self.block_size+1, "truncation": True, "padding": "max_length", "return_tensors": "pt"}
+            "max_length": self.block_size+1, "truncation": True, "padding": "max_length", "return_tensors": "pt", "return_attention_mask": True}
 
-        text = text if self.tokenizer_is_custom else f"<s> {text} </s>"
-        token = self.tokenizer.encode(text, **kwargs)
-        return token
+        # text = text if self.tokenizer_is_custom else f"<s> {text} </s>"
+        # token = self.tokenizer.encode(text, **kwargs)
+        token_data = self.tokenizer(text, **kwargs)
+        return token_data["input_ids"], token_data["attention_mask"]
 
     def __getitem__(self, idx):
         token = None
         # start, end = idx * (self.block_size+1), (idx+1) * (self.block_size)
         if not self.from_cache:
-            text = self.texts[idx]
-            token = self._collate_fn(text)
+            text = self.texts[idx]  
+            target_text = f"<s> {text} </s>"
+            token, mask = self._collate_fn(target_text)
         else:
             token = self.tokens[idx]
 
@@ -127,7 +127,7 @@ class IterablDataset(Dataset):
             x = token[:-1].clone()
             y = token[1:].clone()
 
-        return x, y
+        return x, y, mask
 
     def __len__(self):
         return self.num_subsets
@@ -198,3 +198,4 @@ class PromptDataset(Dataset):
         y = torch.tensor(text[1:], dtype=torch.long, device=self.device)
 
         return x, y
+
