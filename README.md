@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 ### Install Checkpoint for Inference.
 
-- JAMO 2B SMALL Finetuned Model Checkpoint
+- JAMO 0.2B SMALL Finetuned Model Checkpoint
 	- [Google Drive Link for Download](https://drive.google.com/file/d/1wgwGpYZigDEh7Gp_pALlIFmBqHM4RWiB/view?usp=sharing)
 
 
