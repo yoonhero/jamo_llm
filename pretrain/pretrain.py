@@ -44,7 +44,7 @@ class PreTrainer(Trainer):
             self.optimizer: optim.Optimizer = optim.AdamW(optim_group, lr=self.learning_rate)
 
         self.init_logger()
-        
+
         # if self.model.config.vocab_size == 8000 or self.model.config.vocab_size == 32000:
         utils.tokenizer_setting()
         # self.tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--model_size", type=str, default="base")
     parser.add_argument("--learning_rate", type=float, default=1e-3)
-    # parser.add_argument("--min_lr", type=float, default=3e-5)
+    parser.add_argument("--min_lr", type=float, default=3e-5)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_iters", type=int, default=36000)
     parser.add_argument("--warmup_iters", type=int, default=750)
