@@ -125,7 +125,7 @@ class JAMO(nn.Module):
         return cls(config, pretrain=pretrain)
     
     @classmethod
-    def from_pretrained(cls, name: str, path: str, device:torch.device=torch.device("cuda")) -> Self:
+    def from_pretrained(cls, name: str, path: str, device:torch.device=None) -> Self:
         model = JAMO.from_name(name)
         model_state_dict = torch.load(path, map_location="cpu")
         state_dict = model_state_dict["model"]
@@ -134,6 +134,14 @@ class JAMO(nn.Module):
             if k.startswith(unwanted_prefix):
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
+
+        if device is None:
+            if torch.cuda.is_available():
+                device = torch.device("cuda")
+            elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
+                device = torch.device("mps")
+            else:
+                device = torch.device("cpu")
 
         model = model.to(device)
         model.eval()
@@ -153,7 +161,7 @@ class JAMO(nn.Module):
 
     def reset_cache(self) -> None:
         self.kv_caches.clear()
-        if self.mask_cache.device.type == "xla":
+        if self.mask_cache is not None and self.mask_cache.device.type == "xla":
             # https://github.com/Lightning-AI/lit-parrot/pull/83#issuecomment-1558150179
             self.rope_cache = None
             self.mask_cache = None

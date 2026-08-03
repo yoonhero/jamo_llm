@@ -1,221 +1,261 @@
+import codecs
 import json
 import os
-
-import torch
-from torch.utils.data import Dataset
-import numpy as np
-import tqdm
 import time
-from pathlib import Path
-import numpy as np
-import h5py
-import utils
-from transformers import AutoTokenizer, GPT2TokenizerFast
-from typing import Optional, Union
-import codecs
 from multiprocessing import Pool
-import copy
-import glob
+from pathlib import Path
+from typing import Optional, Union
 
+import h5py
+import numpy as np
+import torch
+import tqdm
+from torch.utils.data import Dataset
+from transformers import AutoTokenizer, GPT2TokenizerFast
+
+import utils
 from jamo import Tokenizer
 
+
 class IterablDataset(Dataset):
-    def __init__(self, corpus: Path, tokenizer: Union[Tokenizer, AutoTokenizer], block_size: int, cache_dir=""):
+    """Pretraining dataset with device-aware, backward-compatible cache reads."""
+
+    def __init__(self, corpus: Path, tokenizer: Union[Tokenizer, AutoTokenizer], block_size: int,
+                 cache_dir="", device="auto"):
         self.block_size = block_size
         self.tokenizer = tokenizer
-
-        self.pool_size = 4
+        self.device = utils.resolve_device(device)
         self.from_cache = cache_dir != ""
         self.texts = []
         self.tokenizer_is_custom = isinstance(self.tokenizer, Tokenizer)
+        self.pad_token_id = (
+            getattr(tokenizer, "pad_token_id", None)
+            if tokenizer is not None else None
+        )
+        if self.pad_token_id is None and tokenizer is not None:
+            self.pad_token_id = getattr(tokenizer, "pad_id", None)
+        if self.pad_token_id is None:
+            self.pad_token_id = 1
 
         if not self.from_cache:
-            # num_lines = sum(1 for _ in codecs.open(str(corpus), "r", encoding="utf-8", buffering=10000, errors="ignore"))
             start = time.time()
-
-            # self.texts = self.load_corpus(corpus)
-            total_files = glob.glob(str(corpus / "*"))
+            corpus = Path(corpus)
+            total_files = [corpus] if corpus.is_file() else sorted(corpus.glob("*"))
             print(f"Total Chunk: {len(total_files)}")
 
-            cpu_cores = os.cpu_count()
-            pool = Pool(cpu_cores-1)
-
-            with tqdm.tqdm(total=len(total_files)) as pbar:
-                for _ in tqdm.tqdm(pool.imap_unordered(self.process_chunk, total_files)):
-                    pbar.update()
-
-            pool.close()
-            pool.join()
-
-            # with codecs.open(corpus, "r", encoding="utf-8", buffering=100000, errors="ignore") as f:
-            #     print("Loading Enormous Line by Line")
-
-            #     for line in tqdm.tqdm(f, total=7653985):
-            #         # if len(line) < 200:
-            #         #     return
-            #         self.texts.append(line.strip())
+            if total_files:
+                worker_count = max((os.cpu_count() or 1) - 1, 1)
+                with Pool(worker_count) as pool:
+                    for chunk in tqdm.tqdm(pool.imap_unordered(self.process_chunk, total_files),
+                                           total=len(total_files)):
+                        self.texts.extend(chunk)
 
             print(f"Loading Done in {time.time() - start:.4f}s")
             self.num_subsets = len(self.texts)
-        else: 
-            h5f = h5py.File(cache_dir, "r")
-            self.tokens = h5f["tokens"][:]
-            h5f.close()
+        else:
+            with h5py.File(cache_dir, "r") as h5f:
+                self.tokens = h5f["tokens"][:]
+                self.attention_masks = (
+                    h5f["attention_mask"][:] if "attention_mask" in h5f else None
+                )
+            if self.tokens.dtype == np.int8:
+                raise ValueError(
+                    "The cached token dataset uses int8, which overflows the vocabulary. "
+                    "Rebuild it with save_cache()."
+                )
             self.num_subsets = self.tokens.shape[0]
 
     def process_chunk(self, path):
-        # Process each chunk of lines using multiprocessing
         with codecs.open(path, "r", encoding="utf-8", errors="ignore") as file:
-            for line in file:
-                self.texts.append(line.strip())
-
-        # processed_chunk = []
-        # for line in chunk:
-        #     # if len(line) < 400:
-        #     #     continue
-        #     processed_chunk.append(line.strip())
-        return 
-
-    def load_corpus(self, file_path, chunk_size=10000):
-        pool = Pool(os.cpu_count() - 1)
-        file_size = os.path.getsize(file_path)
-        num_chunks = file_size // chunk_size
-
-        with codecs.open(file_path, "r", encoding="utf-8", buffering=100000, errors="ignore") as file:
-            chunks = []
-
-            print("Read the chunk by chunk")
-            lines = file.readlines(chunk_size)
-            while lines:
-                chunks.append(lines)
-                lines = file.readlines(chunk_size)
-
-            results = []
-            with tqdm.tqdm(total=num_chunks) as pbar:
-                for chunk in chunks:
-                    result = pool.apply_async(self.process_chunk, args=(chunk,))
-                    results.append(result)
-                    pbar.update(1)
-
-        pool.close()
-        pool.join()
-
-        # Get the processed chunks from the results
-        processed_chunks = [result.get() for result in results]
-
-        # Flatten the processed chunks into a single list
-        processed_corpus = [line for chunk in processed_chunks for line in chunk]
-        return processed_corpus
+            return [line.strip() for line in file if line.strip()]
 
     @utils.profile
     def save_cache(self, save_dir):
-        h5f = h5py.File(str(save_dir), "w")
-        
-        self.tokens = np.array([self._collate_fn(t) for t in self.texts], dtype=np.int8)
-        del self.texts
-        h5f.create_dataset("tokens", data=self.tokens)
-        h5f.close()
+        token_rows = []
+        mask_rows = []
+        for text in self.texts:
+            token, mask = self._collate_fn(f"<s> {text} </s>" if not self.tokenizer_is_custom else text)
+            token_rows.append(token)
+            mask_rows.append(mask)
 
+        self.tokens = np.asarray(token_rows, dtype=np.int16)
+        self.attention_masks = np.asarray(mask_rows, dtype=np.uint8)
+        del self.texts
+
+        save_dir = Path(save_dir)
+        save_dir.parent.mkdir(parents=True, exist_ok=True)
+        with h5py.File(str(save_dir), "w") as h5f:
+            h5f.create_dataset("tokens", data=self.tokens, dtype=np.int16)
+            h5f.create_dataset("attention_mask", data=self.attention_masks, dtype=np.uint8)
         self.from_cache = True
 
     def _collate_fn(self, text):
-        kwargs = {"bos": True, "eos": True, "max_length": self.block_size + 1, "pad": True} if self.tokenizer_is_custom else {
-            "max_length": self.block_size+1, "truncation": True, "padding": "max_length", "return_tensors": "pt", "return_attention_mask": True}
+        if self.tokenizer_is_custom:
+            token = self.tokenizer.encode(
+                text, bos=True, eos=True, max_length=self.block_size + 1, pad=True
+            )
+            mask = [int(token_id != self.pad_token_id) for token_id in token]
+            return token, mask
 
-        # text = text if self.tokenizer_is_custom else f"<s> {text} </s>"
-        # token = self.tokenizer.encode(text, **kwargs)
-        token_data = self.tokenizer(text, **kwargs)
-        return token_data["input_ids"], token_data["attention_mask"]
+        token_data = self.tokenizer(
+            text,
+            max_length=self.block_size + 1,
+            truncation=True,
+            padding="max_length",
+            return_tensors="pt",
+            return_attention_mask=True,
+        )
+        token = token_data["input_ids"]
+        mask = token_data["attention_mask"]
+        if token.ndim > 1:
+            token = token[0]
+        if mask.ndim > 1:
+            mask = mask[0]
+        return token.tolist(), mask.tolist()
 
     def __getitem__(self, idx):
-        token = None
-        # start, end = idx * (self.block_size+1), (idx+1) * (self.block_size)
         if not self.from_cache:
-            text = self.texts[idx]  
-            target_text = f"<s> {text} </s>"
-            token, mask = self._collate_fn(target_text)
+            text = self.texts[idx]
+            token, mask = self._collate_fn(
+                f"<s> {text} </s>" if not self.tokenizer_is_custom else text
+            )
         else:
             token = self.tokens[idx]
+            if self.attention_masks is None:
+                mask = (token != self.pad_token_id).astype(np.uint8)
+            else:
+                mask = self.attention_masks[idx]
 
-        if self.tokenizer_is_custom:
-            x = torch.tensor(token[:-1], dtype=torch.long, device="cuda")
-            y = torch.tensor(token[1:], dtype=torch.long, device="cuda")
-        else:
-            token = token[0].to("cuda")
-            x = token[:-1].clone()
-            y = token[1:].clone()
+        token = torch.as_tensor(token, dtype=torch.long, device=self.device)
+        mask = torch.as_tensor(mask, dtype=torch.bool, device=self.device)
+        if token.ndim > 1:
+            token = token[0]
+        if mask.ndim > 1:
+            mask = mask[0]
 
-        return x, y, mask
+        x = token[:-1].clone()
+        y = token[1:].clone()
+        label_mask = mask[1:]
+        y = y.masked_fill(~label_mask, -1)
+        return x, y, label_mask
 
     def __len__(self):
         return self.num_subsets
-    
+
     def __repr__(self) -> str:
         return f"Total {self.num_subsets} subsets."
 
 
 PROMPT_DICT = {
     "prompt_input": (
-        "요청을 적절히 완료하는 응답을 작성하세요.\n"
-        "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:"
+        "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
+        "### 명령어:\n{instruction}\n\n### 입력:\n{input}\n\n### 응답:\n"
     ),
     "prompt_no_input": (
         "명령어에 따른 요청을 적절히 완료하는 응답을 작성하세요.\n\n"
-        "### 명령어:\n{instruction}\n\n### 응답:"
+        "### 명령어:\n{instruction}\n\n### 응답:\n"
     ),
 }
 
 
-def _preprocess_hg(strings, tokenizer:GPT2TokenizerFast, block_size):
-    tokenized_list = [
-        tokenizer(
-            text,
-            padding="longest",
-            truncation=True
-        )["input_ids"]
+def _preprocess_hg(strings, tokenizer: GPT2TokenizerFast, block_size):
+    return [
+        tokenizer(text, padding="longest", truncation=True)["input_ids"]
         for text in strings
     ]
 
-    return tokenized_list
 
 def _preprocess_spm(strings, tokenizer: Tokenizer, block_size):
-    tokened_list = [tokenizer.encode(text, bos=False, eos=False, max_length=block_size + 1, pad=True) for text in strings]
-    return tokened_list
+    return [
+        tokenizer.encode(text, bos=False, eos=False, max_length=block_size + 1, pad=True)
+        for text in strings
+    ]
+
+
+def _preprocess_with_completion_masks(sources, targets, tokenizer, block_size, is_custom):
+    input_ids = []
+    loss_masks = []
+    max_length = block_size + 1
+
+    for source, target in zip(sources, targets):
+        if is_custom:
+            prompt_ids = tokenizer.encode(source, bos=True, eos=False, max_length=-1, pad=False)
+            token_ids = tokenizer.encode(
+                source + target, bos=True, eos=True, max_length=max_length, pad=True
+            )
+            pad_id = tokenizer.pad_id
+        else:
+            prompt_ids = tokenizer.encode(f"<s> {source}", add_special_tokens=False)
+            token_ids = tokenizer.encode(
+                f"<s> {source}{target} </s>",
+                add_special_tokens=False,
+                max_length=max_length,
+                truncation=True,
+                padding="max_length",
+            )
+            pad_id = tokenizer.pad_token_id
+
+        prompt_length = min(len(prompt_ids), len(token_ids))
+        mask = np.zeros(len(token_ids), dtype=np.uint8)
+        for position in range(prompt_length, len(token_ids)):
+            if token_ids[position] != pad_id:
+                mask[position] = 1
+        input_ids.append(token_ids)
+        loss_masks.append(mask)
+
+    return input_ids, loss_masks
 
 
 class PromptDataset(Dataset):
-    def __init__(self, data_path: Optional[str]="", tokenizer: Union[Tokenizer, GPT2TokenizerFast]=None, block_size: Optional[int]=None, cache_dir:str="", mode: str="train", device="cuda"):
+    def __init__(self, data_path: Optional[str] = "", tokenizer: Union[Tokenizer, GPT2TokenizerFast] = None,
+                 block_size: Optional[int] = None, cache_dir: str = "", mode: str = "train",
+                 device="auto", pad_token_id: Optional[int] = None):
         super().__init__()
-        self.device = device
+        self.device = utils.resolve_device(device)
+        if pad_token_id is None:
+            pad_token_id = getattr(tokenizer, "pad_token_id", None)
+            if pad_token_id is None:
+                pad_token_id = getattr(tokenizer, "pad_id", None)
+            if pad_token_id is None and cache_dir:
+                pad_token_id = 1
+        self.pad_token_id = pad_token_id
+        self.loss_masks = None
 
         if cache_dir == "":
-            with open(data_path, "r", "utf-8") as f:
+            with open(data_path, "r", encoding="utf-8") as f:
                 list_data_dict = json.load(f)
 
-            prompt_input, prompt_no_input = PROMPT_DICT["prompt_input"], PROMPT_DICT["prompt_no_input"]
+            prompt_input = PROMPT_DICT["prompt_input"]
+            prompt_no_input = PROMPT_DICT["prompt_no_input"]
             sources = [
                 prompt_input.format_map(example) if example.get("input", "") != "" else prompt_no_input.format_map(example)
                 for example in list_data_dict
             ]
-            targets = [f"{example['output']}{tokenizer.eos_token}" for example in list_data_dict]
-
-            data = [source + target for source, target in zip(sources, targets)]
-            _preprocess = _preprocess_spm if isinstance(tokenizer, Tokenizer) else _preprocess_hg
-            self.input_ids = _preprocess(data, tokenizer, block_size)
+            targets = [str(example["output"]) for example in list_data_dict]
+            self.input_ids, self.loss_masks = _preprocess_with_completion_masks(
+                sources, targets, tokenizer, block_size, isinstance(tokenizer, Tokenizer)
+            )
         else:
-            h5f = h5py.File(cache_dir, "r")
-            self.input_ids = h5f[f"/{mode}"][:].tolist()
-            h5f.close()
+            with h5py.File(cache_dir, "r") as h5f:
+                self.input_ids = h5f[f"/{mode}"][:].tolist()
+                mask_key = f"{mode}_loss_mask"
+                if mask_key in h5f:
+                    self.loss_masks = h5f[mask_key][:]
 
     def __len__(self):
         return len(self.input_ids)
 
-    def __getitem__(self, idx:int):
+    def __getitem__(self, idx: int):
         text = self.input_ids[idx]
         x = torch.tensor(text[:-1], dtype=torch.long, device=self.device)
         y = torch.tensor(text[1:], dtype=torch.long, device=self.device)
 
-        return x, y
+        if self.loss_masks is not None:
+            mask = torch.tensor(self.loss_masks[idx][1:], dtype=torch.bool, device=self.device)
+            if mask.shape != y.shape:
+                raise ValueError("Cached loss mask and token sequence have different lengths")
+            y = y.masked_fill(~mask, -1)
+        elif self.pad_token_id is not None:
+            y = y.masked_fill(y == self.pad_token_id, -1)
 
-if __name__ == "__main__":
-    dataset = IterablDataset(Path("/Volumes/T7/dataset/splitted"), None, 513)
+        return x, y

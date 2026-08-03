@@ -117,6 +117,11 @@ python full.py \
 	--with_lr_scheduler 
 ```
 
+기존 `train`/`eval` HDF5 캐시는 그대로 읽을 수 있으며, 새 캐시는
+프롬프트와 패딩을 손실에서 제외하는 `train_loss_mask`/`eval_loss_mask`를
+추가로 포함합니다. `--device auto`는 CUDA, MPS, CPU 순서로 선택하고,
+CUDA가 아닌 환경에서는 `torch.compile`을 기본적으로 건너뜁니다.
+
 ### Citation
 
 Please cite the repo if you use the data or code in this repo.
