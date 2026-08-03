@@ -19,23 +19,35 @@ from torchcontrib.optim import SWA
 
 class FullTrainer(Trainer):
     def __init__(self, model_path: str, model_size:str, learning_rate: float, batch_size: int, cache_path: str, checkpoint_dir: str, tokenizer_path: str,
-                 max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int, with_lr_scheduler: bool, with_swa: bool):
-        Trainer.__init__(self, learning_rate, batch_size, "", checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
+                 max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int,
+                 with_lr_scheduler: bool, with_swa: bool, device="auto", amp: bool = True,
+                 compile_model=None, pad_token_id: int = 1):
+        Trainer.__init__(self, learning_rate, batch_size, "", checkpoint_dir, tokenizer_path,
+                         save_interval, eval_interval, gradient_accumulate, device=device, amp=amp)
+        self.log_histograms = False
 
         model_path = Path(model_path)
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.pad_token_id = pad_token_id
         self.model = utils.load_model(model_path, model_size=model_size, device=self.device)
         self.cache_path = cache_path
 
-        self.model: nn.Module = torch.compile(self.model, mode="default")
+        if compile_model is None:
+            compile_model = self.device.type == "cuda"
+        if compile_model:
+            self.model: nn.Module = torch.compile(self.model, mode="default")
         optim_group = self.model.configure_optimizers(weight_decay=2e-1)
 
         if not with_swa:
-            self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
+            self.optimizer: optim.Optimizer = SophiaG(
+                optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01,
+                batch_size=self.batch_size * self.gradient_accumulate,
+                update_hessian_on_step=True,
+            )
         else:
             base_opt = optim.Adam(optim_group, lr=self.learning_rate, betas=(0.965, 0.99))
             self.optimizer = SWA(base_opt, swa_start=10, swa_freq=5, swa_lr=0.05)
 
+        self.init_logger()
         self.tokenizer = None
         self.train_loader, self.eval_loader = self.create_dataloader()
 
@@ -50,11 +62,11 @@ class FullTrainer(Trainer):
     def create_dataloader(self):
         g = torch.Generator()
         g.manual_seed(1231928)
-        train_dataset = PromptDataset(cache_dir=self.cache_path, device=self.device)
-        eval_dataset = PromptDataset(cache_dir=self.cache_path, mode="eval", device=self.device)
+        train_dataset = PromptDataset(cache_dir=self.cache_path, device=self.device, pad_token_id=self.pad_token_id)
+        eval_dataset = PromptDataset(cache_dir=self.cache_path, mode="eval", device=self.device, pad_token_id=self.pad_token_id)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, generator=g)
         if len(eval_dataset) != 0:
-            eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
+            eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, shuffle=False, drop_last=False)
         else: eval_loader = None
         self.logger.info("Finishing Loading the DataLoader")
 
@@ -62,15 +74,7 @@ class FullTrainer(Trainer):
     
     @torch.no_grad()
     def eval(self, iteration):
-        losses = []
-        for _, (x, y) in enumerate(self.eval_loader):
-            logits = self.model(x)
-            loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), ignore_index=-1)
-            losses.append(loss.item())
-
-        min_loss = sum(losses) / len(losses)
-        self.writer.add_scalar("Loss/eval", min_loss, iteration)
-        self.logger.info(f"Iter {iteration}: Eval Loss = {min_loss}")
+        return super().eval(iteration)
 
 
 if __name__ == "__main__":
@@ -92,6 +96,12 @@ if __name__ == "__main__":
     parser.add_argument("--cache_path", type=str, default="../tmp/sft-cache.hdf5")
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument("--with_lr_scheduler", action="store_true")
+    parser.add_argument("--device", choices=["auto", "cuda", "mps", "cpu"], default="auto")
+    parser.add_argument("--no_amp", action="store_true")
+    parser.add_argument("--compile", dest="compile_model", action="store_true")
+    parser.add_argument("--no_compile", dest="compile_model", action="store_false")
+    parser.set_defaults(compile_model=None)
+    parser.add_argument("--pad_token_id", type=int, default=1)
 
     args = parser.parse_args()
 
@@ -109,7 +119,11 @@ if __name__ == "__main__":
         eval_interval=args.eval_interval,
         gradient_accumulate=args.gradient_accumulate,
         with_lr_scheduler=args.with_lr_scheduler,
-        with_swa=args.with_swa
+        with_swa=args.with_swa,
+        device=args.device,
+        amp=not args.no_amp,
+        compile_model=args.compile_model,
+        pad_token_id=args.pad_token_id,
     )
 
     trainer.train()

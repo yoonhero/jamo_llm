@@ -78,11 +78,7 @@ if __name__ == "__main__":
     # Loading the pretrained model.
     torch.set_float32_matmul_precision("high")
 
-    # is_mps = torch.backends.mps.is_available()
-    # if is_mps:    
-    #     device = torch.device("mps")
-    # else:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = utils.resolve_device()
 
     model_path = Path(args.model_path)
     model = utils.load_model(model_path, model_size="small", device=device)
@@ -92,8 +88,7 @@ if __name__ == "__main__":
     if model.config.vocab_size == 20000:
         tokenizer = Tokenizer("./tokenizer/corpus.model")
     elif model.config.vocab_size == 8000:
-        from transformers import AutoTokenizer
-        tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
+        tokenizer = utils.load_hg_tokenizer("hg_tokenizer")
     print("⭐️ Loading LLM Done! ⭐️")
 
     # @torch.no_grad()
@@ -188,4 +183,3 @@ if __name__ == "__main__":
 
         model.reset_cache()
         print("\n")
-

@@ -23,8 +23,10 @@ from dataset import IterablDataset
 class PreTrainer(Trainer):
     def __init__(self, model_size:str, learning_rate: float, min_lr: float, batch_size: int, corpus_path: str, checkpoint_dir: str, tokenizer_path: str,
                  max_iters: int, warmup_iters: int, save_interval: int, eval_interval: int, gradient_accumulate: int,
-                 load: bool = False, with_lr_scheduler: bool=False):
-        Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path, save_interval, eval_interval, gradient_accumulate)
+                 load: bool = False, with_lr_scheduler: bool=False, device="auto", amp: bool = True,
+                 compile_model=None):
+        Trainer.__init__(self, learning_rate, batch_size, corpus_path, checkpoint_dir, tokenizer_path,
+                         save_interval, eval_interval, gradient_accumulate, device=device, amp=amp)
         self.pretrain = True
         self.max_iters = max_iters
         self.warmup_iters = warmup_iters
@@ -34,26 +36,29 @@ class PreTrainer(Trainer):
         
         if load:
             self.model, self.optimizer, _ = utils.prepare_for_resuming(self.checkpoint_dir, model_size, self.learning_rate,
-                                                                     best=True, pretrain=self.pretrain)
+                                                                     best=True, pretrain=self.pretrain, device=self.device)
         else:
-            self.checkpoint_dir.mkdir(exist_ok=True)
-            self.model: nn.Module = JAMO.from_name(model_size, pretrain=self.pretrain).to(torch.device("cuda"))
-            self.model: nn.Module = torch.compile(self.model, mode="reduce-overhead")
+            self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            self.model: nn.Module = JAMO.from_name(model_size, pretrain=self.pretrain).to(self.device)
+            if compile_model is None:
+                compile_model = self.device.type == "cuda"
+            if compile_model:
+                self.model: nn.Module = torch.compile(self.model, mode="reduce-overhead")
             optim_group = self.model.configure_optimizers(weight_decay=1e-1)
-            # self.optimizer: optim.Optimizer = SophiaG(optim_group, lr=self.learning_rate, betas=(0.965, 0.99), rho=0.01)
             self.optimizer: optim.Optimizer = optim.AdamW(optim_group, lr=self.learning_rate)
 
         self.init_logger()
 
-        # if self.model.config.vocab_size == 8000 or self.model.config.vocab_size == 32000:
         utils.tokenizer_setting()
-        # self.tokenizer = AutoTokenizer.from_pretrained("hg_tokenizer")
-        from transformers import PreTrainedTokenizerFast
-        self.tokenizer = PreTrainedTokenizerFast.from_pretrained("skt/kogpt2-base-v2",
-            bos_token='<s>', eos_token='</s>', unk_token='<unk>',
-            pad_token='<pad>', mask_token='<mask>')
-        # else:
-        #     self.tokenizer: Tokenizer = Tokenizer(self.tokenizer_path)
+        if self.model.config.vocab_size in {8000, 32000}:
+            self.tokenizer = utils.load_hg_tokenizer(self.tokenizer_path)
+        else:
+            from transformers import PreTrainedTokenizerFast
+            self.tokenizer = PreTrainedTokenizerFast.from_pretrained(
+                "skt/kogpt2-base-v2",
+                bos_token='<s>', eos_token='</s>', unk_token='<unk>',
+                pad_token='<pad>', mask_token='<mask>'
+            )
 
         self.train_loader, self.eval_loader = self.create_dataloader(tokenizer=self.tokenizer,
                                                                block_size=self.model.config.block_size)
@@ -63,10 +68,12 @@ class PreTrainer(Trainer):
         g.manual_seed(seed)
 
         t0 = time.time()
-        dataset = IterablDataset(self.corpus_path, tokenizer, block_size)
-        eval_size = 100
+        dataset = IterablDataset(self.corpus_path, tokenizer, block_size, device=self.device)
+        if len(dataset) == 0:
+            raise ValueError("The pretraining corpus produced no usable examples")
+        eval_size = min(100, max(len(dataset) - 1, 0))
         train_size = len(dataset) - eval_size
-        train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
+        train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size], generator=g)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, generator=g)
         eval_loader = DataLoader(eval_dataset, batch_size=self.batch_size, generator=g)
 
@@ -87,7 +94,7 @@ class PreTrainer(Trainer):
         # coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
         # return self.min_lr + coeff * (self.learning_rate - self.min_lr)
 
-        return self.learning_rate * step / self.warmup_iters if step < self.warmup_iter else self.learning_rate
+        return self.learning_rate * step / self.warmup_iters if step < self.warmup_iters else self.learning_rate
 
 
 if __name__ == "__main__":
@@ -110,6 +117,11 @@ if __name__ == "__main__":
     parser.add_argument("--tokenizer_path", type=str, default="hg_tokenizer")
     parser.add_argument("--load_model", action='store_true')
     parser.add_argument("--with_lr_scheduler", action="store_true")
+    parser.add_argument("--device", choices=["auto", "cuda", "mps", "cpu"], default="auto")
+    parser.add_argument("--no_amp", action="store_true")
+    parser.add_argument("--compile", dest="compile_model", action="store_true")
+    parser.add_argument("--no_compile", dest="compile_model", action="store_false")
+    parser.set_defaults(compile_model=None)
 
     args = parser.parse_args()
 
@@ -127,7 +139,10 @@ if __name__ == "__main__":
         eval_interval=args.eval_interval,
         gradient_accumulate=args.gradient_accumulate,
         load=args.load_model,
-        with_lr_scheduler=args.with_lr_scheduler
+        with_lr_scheduler=args.with_lr_scheduler,
+        device=args.device,
+        amp=not args.no_amp,
+        compile_model=args.compile_model,
     )
 
     trainer.train()

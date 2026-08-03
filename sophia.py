@@ -9,7 +9,8 @@ from typing import List, Optional
 class SophiaG(Optimizer):
     def __init__(self, params, lr=1e-4, betas=(0.965, 0.99), rho = 0.04,
          weight_decay=1e-1, *, maximize: bool = False,
-         capturable: bool = False):
+         capturable: bool = False, batch_size: Optional[int] = None,
+         update_hessian_on_step: bool = True):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= betas[0] < 1.0:
@@ -24,6 +25,9 @@ class SophiaG(Optimizer):
                         weight_decay=weight_decay, 
                         maximize=maximize, capturable=capturable)
         super(SophiaG, self).__init__(params, defaults)
+        self.batch_size = batch_size
+        self.update_hessian_on_step = update_hessian_on_step
+        self._hessian_updated = False
 
     def __setstate__(self, state):
         super().__setstate__(state)
@@ -31,10 +35,16 @@ class SophiaG(Optimizer):
             group.setdefault('maximize', False)
             group.setdefault('capturable', False)
         state_values = list(self.state.values())
-        step_is_tensor = (len(state_values) != 0) and torch.is_tensor(state_values[0]['step'])
+        step_is_tensor = (len(state_values) != 0) and torch.is_tensor(state_values[0].get('step'))
         if not step_is_tensor:
             for s in state_values:
-                s['step'] = torch.tensor(float(s['step']))
+                if 'step' in s:
+                    s['step'] = torch.tensor(float(s['step']))
+
+    def set_batch_size(self, batch_size: int) -> None:
+        if batch_size is None or batch_size <= 0:
+            raise ValueError("batch_size must be a positive integer")
+        self.batch_size = int(batch_size)
     
     @torch.no_grad()
     def update_hessian(self):
@@ -55,14 +65,25 @@ class SophiaG(Optimizer):
                     state['hessian'] = torch.zeros_like(p, memory_format=torch.preserve_format)
 
                 state['hessian'].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
+        self._hessian_updated = True
 
 
     @torch.no_grad()
-    def step(self, closure=None, bs=5120):
+    def step(self, closure=None, bs=None):
         loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
+
+        # Historical trainers never called update_hessian(), leaving all
+        # saved Hessians at zero.  Keep explicit callers compatible while
+        # making the safe behavior automatic for existing training loops.
+        if self.update_hessian_on_step and not self._hessian_updated:
+            self.update_hessian()
+        self._hessian_updated = False
+
+        if bs is None:
+            bs = self.batch_size or 5120
 
         for group in self.param_groups:
             params_with_grad = []
